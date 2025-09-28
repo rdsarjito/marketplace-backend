@@ -56,7 +56,6 @@ func main() {
 	// Initialize services
 	authService := services.NewAuthService(userRepository, shopRepository, provinceCityRepository)
 	userService := services.NewUserService(userRepository, addressRepository)
-	provinceCityService := services.NewProvinceCityService(provinceCityRepository)
 	categoryService := services.NewCategoryService(categoryRepository)
 	shopService := services.NewShopService(shopRepository)
 	productService := services.NewProductService(productRepository, shopRepository, categoryRepository)

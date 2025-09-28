@@ -6,7 +6,6 @@ import (
 	"github.com/rdsarjito/marketplace-backend/constants"
 	"github.com/rdsarjito/marketplace-backend/domain/dto/request"
 	"github.com/rdsarjito/marketplace-backend/domain/dto/response"
-	"github.com/rdsarjito/marketplace-backend/domain/model"
 	"github.com/rdsarjito/marketplace-backend/repositories"
 )
 
