@@ -124,8 +124,8 @@ func (h *ProductHandler) UploadProductPhoto(c *fiber.Ctx) error {
     if err := c.SaveFile(file, path); err != nil {
         return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse("Upload failed", err.Error()))
     }
-    // Build public URL (served via /uploads static)
-    url := "/" + path
+    // Build public URL (served via /uploads static) + cache-busting
+    url := fmt.Sprintf("/%s?v=%d", path, time.Now().Unix())
     prod, err := h.productService.AddProductPhoto(userID, id, url)
     if err != nil {
         return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse(err.Error(), nil))

@@ -1,8 +1,8 @@
 package repositories
 
 import (
-	"github.com/rdsarjito/marketplace-backend/domain/model"
-	"gorm.io/gorm"
+    "github.com/rdsarjito/marketplace-backend/domain/model"
+    "gorm.io/gorm"
 )
 
 type ProductRepository interface {
@@ -30,7 +30,7 @@ func (r *productRepository) Create(product *model.Product) error {
 
 func (r *productRepository) GetByID(id int) (*model.Product, error) {
 	var product model.Product
-	err := r.db.Preload("Toko").Preload("Category").Preload("PhotosProduct").First(&product, id).Error
+    err := r.db.Preload("Toko").Preload("Category").Preload("PhotosProduct", func(db *gorm.DB) *gorm.DB { return db.Order("created_at DESC") }).First(&product, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -39,19 +39,19 @@ func (r *productRepository) GetByID(id int) (*model.Product, error) {
 
 func (r *productRepository) GetAll() ([]model.Product, error) {
 	var products []model.Product
-	err := r.db.Preload("Toko").Preload("Category").Preload("PhotosProduct").Find(&products).Error
+    err := r.db.Preload("Toko").Preload("Category").Preload("PhotosProduct", func(db *gorm.DB) *gorm.DB { return db.Order("created_at DESC") }).Find(&products).Error
 	return products, err
 }
 
 func (r *productRepository) GetByShopID(shopID int) ([]model.Product, error) {
 	var products []model.Product
-	err := r.db.Preload("Toko").Preload("Category").Preload("PhotosProduct").Where("id_toko = ?", shopID).Find(&products).Error
+    err := r.db.Preload("Toko").Preload("Category").Preload("PhotosProduct", func(db *gorm.DB) *gorm.DB { return db.Order("created_at DESC") }).Where("id_toko = ?", shopID).Find(&products).Error
 	return products, err
 }
 
 func (r *productRepository) GetByCategoryID(categoryID int) ([]model.Product, error) {
 	var products []model.Product
-	err := r.db.Preload("Toko").Preload("Category").Preload("PhotosProduct").Where("id_category = ?", categoryID).Find(&products).Error
+    err := r.db.Preload("Toko").Preload("Category").Preload("PhotosProduct", func(db *gorm.DB) *gorm.DB { return db.Order("created_at DESC") }).Where("id_category = ?", categoryID).Find(&products).Error
 	return products, err
 }
 
