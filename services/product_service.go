@@ -17,6 +17,7 @@ type ProductService interface {
 	CreateProduct(userID int, req *request.CreateProductRequest) (*response.ProductResponse, error)
 	UpdateProduct(userID, id int, req *request.UpdateProductRequest) (*response.ProductResponse, error)
 	DeleteProduct(userID, id int) error
+    AddProductPhoto(userID, productID int, url string) (*response.ProductResponse, error)
 }
 
 type productService struct {
@@ -167,6 +168,30 @@ func (s *productService) DeleteProduct(userID, id int) error {
 	}
 
 	return s.productRepo.Delete(id)
+}
+
+func (s *productService) AddProductPhoto(userID, productID int, url string) (*response.ProductResponse, error) {
+    product, err := s.productRepo.GetByID(productID)
+    if err != nil {
+        return nil, errors.New(constants.ErrProductNotFound)
+    }
+    shop, err := s.shopRepo.GetByID(product.IDToko)
+    if err != nil {
+        return nil, errors.New(constants.ErrShopNotFound)
+    }
+    if shop.IDUser != userID {
+        return nil, errors.New(constants.ErrForbidden)
+    }
+    photo := &model.PhotoProduct{ IDProduk: productID, URL: url }
+    if err := s.productRepo.AddPhoto(photo); err != nil {
+        return nil, err
+    }
+    updated, err := s.productRepo.GetByID(productID)
+    if err != nil {
+        return nil, err
+    }
+    resp := s.mapProductToResponse(*updated)
+    return &resp, nil
 }
 
 func (s *productService) mapProductToResponse(product model.Product) response.ProductResponse {

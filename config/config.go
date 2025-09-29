@@ -12,7 +12,6 @@ type Config struct {
 }
 
 func LoadConfig() *Config {
-	// Load .env file
 	godotenv.Load()
 
 	return &Config{

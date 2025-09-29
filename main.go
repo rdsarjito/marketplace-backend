@@ -117,6 +117,7 @@ func main() {
 	api.Post("/product", productHandler.CreateProduct)
 	api.Put("/product/:id", productHandler.UpdateProduct)
 	api.Delete("/product/:id", productHandler.DeleteProduct)
+    api.Post("/product/:id/photo", productHandler.UploadProductPhoto)
 
 	// Transaction routes
 	api.Get("/trx", trxHandler.GetListTRX)

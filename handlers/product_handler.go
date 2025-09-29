@@ -1,14 +1,16 @@
 package handlers
 
 import (
-	"strconv"
+    "fmt"
+    "strconv"
+    "time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/go-playground/validator/v10"
-	"github.com/rdsarjito/marketplace-backend/constants"
-	"github.com/rdsarjito/marketplace-backend/domain/dto/request"
-	"github.com/rdsarjito/marketplace-backend/domain/dto/response"
-	"github.com/rdsarjito/marketplace-backend/services"
+    "github.com/gofiber/fiber/v2"
+    "github.com/go-playground/validator/v10"
+    "github.com/rdsarjito/marketplace-backend/constants"
+    "github.com/rdsarjito/marketplace-backend/domain/dto/request"
+    "github.com/rdsarjito/marketplace-backend/domain/dto/response"
+    "github.com/rdsarjito/marketplace-backend/services"
 )
 
 type ProductHandler struct {
@@ -105,4 +107,28 @@ func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse(constants.MsgProductDeleted, nil))
+}
+
+func (h *ProductHandler) UploadProductPhoto(c *fiber.Ctx) error {
+    userID := c.Locals("userID").(int)
+    id, err := strconv.Atoi(c.Params("id"))
+    if err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Invalid product ID", nil))
+    }
+    file, err := c.FormFile("file")
+    if err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("File not found", nil))
+    }
+    // Save file to uploads folder
+    path := fmt.Sprintf("uploads/%d_%s", time.Now().UnixNano(), file.Filename)
+    if err := c.SaveFile(file, path); err != nil {
+        return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse("Upload failed", err.Error()))
+    }
+    // Build public URL (served via /uploads static)
+    url := "/" + path
+    prod, err := h.productService.AddProductPhoto(userID, id, url)
+    if err != nil {
+        return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse(err.Error(), nil))
+    }
+    return c.Status(fiber.StatusOK).JSON(response.SuccessResponse("Photo uploaded", prod))
 }

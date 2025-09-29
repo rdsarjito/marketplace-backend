@@ -13,6 +13,7 @@ type ProductRepository interface {
 	GetByCategoryID(categoryID int) ([]model.Product, error)
 	Update(product *model.Product) error
 	Delete(id int) error
+    AddPhoto(photo *model.PhotoProduct) error
 }
 
 type productRepository struct {
@@ -60,4 +61,8 @@ func (r *productRepository) Update(product *model.Product) error {
 
 func (r *productRepository) Delete(id int) error {
 	return r.db.Delete(&model.Product{}, id).Error
+}
+
+func (r *productRepository) AddPhoto(photo *model.PhotoProduct) error {
+    return r.db.Create(photo).Error
 }
