@@ -11,6 +11,7 @@ type TRXRepository interface {
 	GetByUserID(userID int) ([]model.TRX, error)
 	Update(trx *model.TRX) error
 	Delete(id int) error
+    CreateDetail(detail *model.DetailTRX) error
 }
 
 type trxRepository struct {
@@ -46,4 +47,8 @@ func (r *trxRepository) Update(trx *model.TRX) error {
 
 func (r *trxRepository) Delete(id int) error {
 	return r.db.Delete(&model.TRX{}, id).Error
+}
+
+func (r *trxRepository) CreateDetail(detail *model.DetailTRX) error {
+    return r.db.Create(detail).Error
 }

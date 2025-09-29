@@ -130,23 +130,23 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		return nil, err
 	}
 
-	// Create detail transactions and update stock
-	for _, detailReq := range req.DetailTRX {
-		// Update product stock
-		product, _ := s.productRepo.GetByID(detailReq.IDProduk)
-		product.Stok -= detailReq.Kuantitas
-		s.productRepo.Update(product)
+    // Create detail transactions and update stock
+    for _, detailReq := range req.DetailTRX {
+        // Update product stock
+        product, _ := s.productRepo.GetByID(detailReq.IDProduk)
+        product.Stok -= detailReq.Kuantitas
+        s.productRepo.Update(product)
 
-		// Note: In a real application, you would also create the detail record
-		// For now, we'll skip the detail creation as we don't have a detail repository
-		_ = &model.DetailTRX{
-			IDTRX:      trx.ID,
-			IDProduk:   detailReq.IDProduk,
-			IDToko:     detailReq.IDToko,
-			Kuantitas:  detailReq.Kuantitas,
-			HargaTotal: detailReq.HargaTotal,
-		}
-	}
+        // Create detail record
+        detail := &model.DetailTRX{
+            IDTRX:      trx.ID,
+            IDProduk:   detailReq.IDProduk,
+            IDToko:     detailReq.IDToko,
+            Kuantitas:  detailReq.Kuantitas,
+            HargaTotal: detailReq.HargaTotal,
+        }
+        _ = s.trxRepo.CreateDetail(detail)
+    }
 
 	// Get created transaction with relations
 	createdTRX, err := s.trxRepo.GetByID(trx.ID)
