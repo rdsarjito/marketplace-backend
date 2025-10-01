@@ -37,6 +37,7 @@ func InitDatabase() *gorm.DB {
 		&model.Shop{},
 		&model.TRX{},
 		&model.DetailTRX{},
+		&model.PasswordResetToken{},
 	)
 	if err != nil {
 		log.Fatal("Error: ", err.Error())

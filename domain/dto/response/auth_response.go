@@ -18,3 +18,11 @@ type UserProfile struct {
 	IDKota        string `json:"id_kota"`
 	IsAdmin       bool   `json:"is_admin"`
 }
+
+type ForgotPasswordResponse struct {
+	Message string `json:"message"`
+}
+
+type ResetPasswordResponse struct {
+	Message string `json:"message"`
+}

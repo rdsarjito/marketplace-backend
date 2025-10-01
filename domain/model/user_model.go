@@ -22,3 +22,17 @@ type User struct {
 func (User) TableName() string {
 	return "user"
 }
+
+type PasswordResetToken struct {
+	ID        int       `gorm:"type:int;primaryKey;autoIncrement"`
+	UserID    int       `gorm:"type:int;not null"`
+	Token     string    `gorm:"type:varchar(255);not null;uniqueIndex"`
+	ExpiresAt time.Time `gorm:"type:timestamp;not null"`
+	Used      bool      `gorm:"default:false"`
+	CreatedAt time.Time `gorm:"type:timestamp"`
+	UpdatedAt time.Time `gorm:"type:timestamp"`
+}
+
+func (PasswordResetToken) TableName() string {
+	return "password_reset_tokens"
+}

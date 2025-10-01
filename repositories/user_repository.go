@@ -12,6 +12,9 @@ type UserRepository interface {
 	GetByPhone(phone string) (*model.User, error)
 	Update(user *model.User) error
 	Delete(id int) error
+	CreatePasswordResetToken(token *model.PasswordResetToken) error
+	GetPasswordResetToken(token string) (*model.PasswordResetToken, error)
+	MarkTokenAsUsed(token string) error
 }
 
 type userRepository struct {
@@ -59,4 +62,21 @@ func (r *userRepository) Update(user *model.User) error {
 
 func (r *userRepository) Delete(id int) error {
 	return r.db.Delete(&model.User{}, id).Error
+}
+
+func (r *userRepository) CreatePasswordResetToken(token *model.PasswordResetToken) error {
+	return r.db.Create(token).Error
+}
+
+func (r *userRepository) GetPasswordResetToken(token string) (*model.PasswordResetToken, error) {
+	var resetToken model.PasswordResetToken
+	err := r.db.Where("token = ? AND used = ?", token, false).First(&resetToken).Error
+	if err != nil {
+		return nil, err
+	}
+	return &resetToken, nil
+}
+
+func (r *userRepository) MarkTokenAsUsed(token string) error {
+	return r.db.Model(&model.PasswordResetToken{}).Where("token = ?", token).Update("used", true).Error
 }

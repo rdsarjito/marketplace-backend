@@ -79,6 +79,8 @@ func main() {
 	// Auth routes (public)
 	api.Post("/auth/register", authHandler.RegisterUser)
 	api.Post("/auth/login", authHandler.LoginUser)
+	api.Post("/auth/forgot-password", authHandler.ForgotPassword)
+	api.Post("/auth/reset-password", authHandler.ResetPassword)
 
 	// Province & City routes (public)
 	api.Get("/provcity/listprovincies", provinceCityHandler.GetListProvince)

@@ -1,7 +1,10 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/rdsarjito/marketplace-backend/constants"
@@ -16,6 +19,8 @@ import (
 type AuthService interface {
 	RegisterUser(req *request.RegisterRequest) (*response.AuthResponse, error)
 	LoginUser(req *request.LoginRequest) (*response.AuthResponse, error)
+	ForgotPassword(req *request.ForgotPasswordRequest) (*response.ForgotPasswordResponse, error)
+	ResetPassword(req *request.ResetPasswordRequest) (*response.ResetPasswordResponse, error)
 }
 
 type authService struct {
@@ -149,5 +154,84 @@ func (s *authService) LoginUser(req *request.LoginRequest) (*response.AuthRespon
 	return &response.AuthResponse{
 		Token: token,
 		User:  userProfile,
+	}, nil
+}
+
+func (s *authService) ForgotPassword(req *request.ForgotPasswordRequest) (*response.ForgotPasswordResponse, error) {
+	// Check if user exists
+	user, err := s.userRepo.GetByEmail(req.Email)
+	if err != nil {
+		// For security, don't reveal if email exists or not
+		return &response.ForgotPasswordResponse{
+			Message: "Jika email terdaftar, link reset password telah dikirim ke email Anda",
+		}, nil
+	}
+
+	// Generate random token
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return nil, err
+	}
+	token := hex.EncodeToString(tokenBytes)
+
+	// Create password reset token
+	resetToken := &model.PasswordResetToken{
+		UserID:    user.ID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour), // Token expires in 24 hours
+		Used:      false,
+	}
+
+	if err := s.userRepo.CreatePasswordResetToken(resetToken); err != nil {
+		return nil, err
+	}
+
+	// In a real application, you would send an email here
+	// For development, we'll just log the token
+	fmt.Printf("Password reset token for %s: %s\n", user.Email, token)
+	fmt.Printf("Reset URL: http://localhost:5173/reset-password?token=%s\n", token)
+
+	return &response.ForgotPasswordResponse{
+		Message: "Jika email terdaftar, link reset password telah dikirim ke email Anda",
+	}, nil
+}
+
+func (s *authService) ResetPassword(req *request.ResetPasswordRequest) (*response.ResetPasswordResponse, error) {
+	// Get and validate token
+	resetToken, err := s.userRepo.GetPasswordResetToken(req.Token)
+	if err != nil {
+		return nil, errors.New("Token tidak valid atau sudah expired")
+	}
+
+	// Check if token is expired
+	if time.Now().After(resetToken.ExpiresAt) {
+		return nil, errors.New("Token sudah expired")
+	}
+
+	// Get user
+	user, err := s.userRepo.GetByID(resetToken.UserID)
+	if err != nil {
+		return nil, errors.New("User tidak ditemukan")
+	}
+
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.KataSandi), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update user password
+	user.KataSandi = string(hashedPassword)
+	if err := s.userRepo.Update(user); err != nil {
+		return nil, err
+	}
+
+	// Mark token as used
+	if err := s.userRepo.MarkTokenAsUsed(req.Token); err != nil {
+		return nil, err
+	}
+
+	return &response.ResetPasswordResponse{
+		Message: "Password berhasil direset",
 	}, nil
 }

@@ -58,3 +58,41 @@ func (h *AuthHandler) LoginUser(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse(constants.MsgUserLoggedIn, authResponse))
 }
+
+func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
+	var req request.ForgotPasswordRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Invalid request body", err.Error()))
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Validation failed", err.Error()))
+	}
+
+	forgotResponse, err := h.authService.ForgotPassword(&req)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse(err.Error(), nil))
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse(forgotResponse.Message, nil))
+}
+
+func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
+	var req request.ResetPasswordRequest
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Invalid request body", err.Error()))
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Validation failed", err.Error()))
+	}
+
+	resetResponse, err := h.authService.ResetPassword(&req)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse(err.Error(), nil))
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse(resetResponse.Message, nil))
+}
