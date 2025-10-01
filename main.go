@@ -54,7 +54,8 @@ func main() {
 	trxRepository := repositories.NewTRXRepository(db)
 
 	// Initialize services
-	authService := services.NewAuthService(userRepository, shopRepository, provinceCityRepository)
+	emailService := services.NewEmailService()
+	authService := services.NewAuthService(userRepository, shopRepository, provinceCityRepository, emailService)
 	userService := services.NewUserService(userRepository, addressRepository)
 	categoryService := services.NewCategoryService(categoryRepository)
 	shopService := services.NewShopService(shopRepository)

@@ -27,13 +27,15 @@ type authService struct {
 	userRepo           repositories.UserRepository
 	shopRepo           repositories.ShopRepository
 	provinceCityRepo   repositories.ProvinceCityRepository
+	emailService       EmailService
 }
 
-func NewAuthService(userRepo repositories.UserRepository, shopRepo repositories.ShopRepository, provinceCityRepo repositories.ProvinceCityRepository) AuthService {
+func NewAuthService(userRepo repositories.UserRepository, shopRepo repositories.ShopRepository, provinceCityRepo repositories.ProvinceCityRepository, emailService EmailService) AuthService {
 	return &authService{
 		userRepo:         userRepo,
 		shopRepo:         shopRepo,
 		provinceCityRepo: provinceCityRepo,
+		emailService:     emailService,
 	}
 }
 
@@ -186,10 +188,11 @@ func (s *authService) ForgotPassword(req *request.ForgotPasswordRequest) (*respo
 		return nil, err
 	}
 
-	// In a real application, you would send an email here
-	// For development, we'll just log the token
-	fmt.Printf("Password reset token for %s: %s\n", user.Email, token)
-	fmt.Printf("Reset URL: http://localhost:5173/reset-password?token=%s\n", token)
+	// Send email with reset link
+	if err := s.emailService.SendPasswordResetEmail(user.Email, token); err != nil {
+		// Log error but don't fail the request (for security)
+		fmt.Printf("Failed to send email to %s: %v\n", user.Email, err)
+	}
 
 	return &response.ForgotPasswordResponse{
 		Message: "Jika email terdaftar, link reset password telah dikirim ke email Anda",
