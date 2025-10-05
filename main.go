@@ -82,6 +82,8 @@ func main() {
 	api.Post("/auth/login", authHandler.LoginUser)
 	api.Post("/auth/forgot-password", authHandler.ForgotPassword)
 	api.Post("/auth/reset-password", authHandler.ResetPassword)
+	api.Get("/auth/google", authHandler.GoogleLogin)
+	api.Get("/auth/google/callback", authHandler.GoogleCallback)
 
 	// Province & City routes (public)
 	api.Get("/provcity/listprovincies", provinceCityHandler.GetListProvince)

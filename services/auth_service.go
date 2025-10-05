@@ -21,6 +21,7 @@ type AuthService interface {
 	LoginUser(req *request.LoginRequest) (*response.AuthResponse, error)
 	ForgotPassword(req *request.ForgotPasswordRequest) (*response.ForgotPasswordResponse, error)
 	ResetPassword(req *request.ResetPasswordRequest) (*response.ResetPasswordResponse, error)
+    LoginWithGoogle(email, name string) (*response.AuthResponse, error)
 }
 
 type authService struct {
@@ -157,6 +158,72 @@ func (s *authService) LoginUser(req *request.LoginRequest) (*response.AuthRespon
 		Token: token,
 		User:  userProfile,
 	}, nil
+}
+
+// LoginWithGoogle logs the user in using Google account email. If the user
+// does not exist, it creates a minimal user profile and a shop entry.
+func (s *authService) LoginWithGoogle(email, name string) (*response.AuthResponse, error) {
+    if email == "" {
+        return nil, errors.New("Invalid Google account: email missing")
+    }
+
+    // Try to find by email
+    user, err := s.userRepo.GetByEmail(email)
+    if err != nil || user == nil {
+        // Create minimal user (fill required non-null fields with defaults)
+        now := time.Now()
+        newUser := &model.User{
+            Nama:         name,
+            KataSandi:    "google-oauth", // not used for Google login
+            NoTelp:       "google-" + email,
+            TanggalLahir: now,
+            JenisKelamin: "",
+            Tentang:      "",
+            Pekerjaan:    "",
+            Email:        email,
+            IDProvinsi:   "",
+            IDKota:       "",
+            IsAdmin:      false,
+        }
+        if err := s.userRepo.Create(newUser); err != nil {
+            return nil, err
+        }
+        // Create default shop
+        shop := &model.Shop{
+            NamaToko: name + "'s Shop",
+            URLToko:  "shop-" + email,
+            IDUser:   newUser.ID,
+        }
+        if err := s.shopRepo.Create(shop); err != nil {
+            return nil, err
+        }
+        user = newUser
+    }
+
+    // Generate token
+    token, err := utils.GenerateToken(user.ID, user.IsAdmin)
+    if err != nil {
+        return nil, err
+    }
+
+    userProfile := response.UserProfile{
+        ID:            user.ID,
+        Nama:          user.Nama,
+        NoTelp:        user.NoTelp,
+        TanggalLahir:  user.TanggalLahir.Format("2006-01-02"),
+        JenisKelamin:  user.JenisKelamin,
+        Tentang:       user.Tentang,
+        Pekerjaan:     user.Pekerjaan,
+        Email:         user.Email,
+        IDProvinsi:    user.IDProvinsi,
+        IDKota:        user.IDKota,
+        IsAdmin:       user.IsAdmin,
+    }
+
+    return &response.AuthResponse{
+        Token: token,
+        User:  userProfile,
+    }, nil
 }
 
 func (s *authService) ForgotPassword(req *request.ForgotPasswordRequest) (*response.ForgotPasswordResponse, error) {
