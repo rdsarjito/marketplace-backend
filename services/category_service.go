@@ -16,6 +16,7 @@ type CategoryService interface {
 	CreateCategory(req *request.CreateCategoryRequest) (*response.CategoryResponse, error)
 	UpdateCategory(id int, req *request.UpdateCategoryRequest) (*response.CategoryResponse, error)
 	DeleteCategory(id int) error
+    EnsureDefaultCategories(names []string) error
 }
 
 type categoryService struct {
@@ -111,4 +112,20 @@ func (s *categoryService) DeleteCategory(id int) error {
 	}
 
 	return s.categoryRepo.Delete(id)
+}
+
+// EnsureDefaultCategories creates categories if they don't exist
+func (s *categoryService) EnsureDefaultCategories(names []string) error {
+    for _, name := range names {
+        if name == "" { continue }
+        if _, err := s.categoryRepo.GetByName(name); err == nil {
+            // already exists
+            continue
+        }
+        // create
+        if err := s.categoryRepo.Create(&model.Category{Nama: name}); err != nil {
+            return err
+        }
+    }
+    return nil
 }

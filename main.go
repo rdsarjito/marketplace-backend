@@ -71,6 +71,9 @@ func main() {
 	productHandler := handlers.NewProductHandler(productService)
 	trxHandler := handlers.NewTRXHandler(trxService)
 
+	// Seed default categories (idempotent)
+	_ = categoryService.EnsureDefaultCategories([]string{"Fashion Pria", "Fashion Wanita"})
+
 	// Initialize middleware
 	authMiddleware := middleware.AuthMiddleware(userService)
 
