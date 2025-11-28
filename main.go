@@ -13,6 +13,7 @@ import (
 	"github.com/rdsarjito/marketplace-backend/middleware"
 	"github.com/rdsarjito/marketplace-backend/repositories"
 	"github.com/rdsarjito/marketplace-backend/services"
+	"github.com/rdsarjito/marketplace-backend/storage"
 )
 
 func main() {
@@ -53,7 +54,7 @@ func main() {
 	productRepository := repositories.NewProductRepository(db)
 	trxRepository := repositories.NewTRXRepository(db)
 
-	// Initialize services
+	// Initialize shared services
 	emailService := services.NewEmailService()
 	authService := services.NewAuthService(userRepository, shopRepository, provinceCityRepository, emailService)
 	userService := services.NewUserService(userRepository, addressRepository)
@@ -61,6 +62,10 @@ func main() {
 	shopService := services.NewShopService(shopRepository)
 	productService := services.NewProductService(productRepository, shopRepository, categoryRepository)
 	trxService := services.NewTRXService(trxRepository, productRepository, addressRepository, shopRepository, categoryRepository)
+	mediaStorage, err := storage.NewMinioStorageFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(authService)
@@ -68,11 +73,8 @@ func main() {
 	provinceCityHandler := handlers.NewProvinceCityHandler(provinceCityRepository)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	shopHandler := handlers.NewShopHandler(shopService)
-	productHandler := handlers.NewProductHandler(productService)
+	productHandler := handlers.NewProductHandler(productService, mediaStorage)
 	trxHandler := handlers.NewTRXHandler(trxService)
-
-	// Seed default categories (idempotent)
-	_ = categoryService.EnsureDefaultCategories([]string{"Fashion Pria", "Fashion Wanita"})
 
 	// Initialize middleware
 	authMiddleware := middleware.AuthMiddleware(userService)
@@ -125,7 +127,7 @@ func main() {
 	api.Post("/product", productHandler.CreateProduct)
 	api.Put("/product/:id", productHandler.UpdateProduct)
 	api.Delete("/product/:id", productHandler.DeleteProduct)
-    api.Post("/product/:id/photo", productHandler.UploadProductPhoto)
+	api.Post("/product/:id/photo", productHandler.UploadProductPhoto)
 
 	// Transaction routes
 	api.Get("/trx", trxHandler.GetListTRX)
