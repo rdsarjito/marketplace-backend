@@ -2,7 +2,7 @@ package request
 
 type CreateTRXRequest struct {
 	HargaTotal  int                    `json:"harga_total" validate:"required"`
-	MethodBayar string                 `json:"method_bayar" validate:"required"`
+	MethodBayar string                 `json:"method_bayar" validate:"required,oneof=COD cod virtual_account va e_wallet ewallet gopay ovo dana linkaja bank_transfer bank_transfer_bca bank_transfer_bni bank_transfer_mandiri credit_card cc"`
 	IDAlamat    int                    `json:"id_alamat" validate:"required"`
 	DetailTRX   []CreateDetailTRXRequest `json:"detail_trx" validate:"required"`
 }
