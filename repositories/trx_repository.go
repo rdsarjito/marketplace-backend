@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"time"
+
 	"github.com/rdsarjito/marketplace-backend/domain/model"
 	"gorm.io/gorm"
 )
@@ -11,6 +13,7 @@ type TRXRepository interface {
 	GetByUserID(userID int) ([]model.TRX, error)
 	GetByInvoiceCode(invoiceCode string) (*model.TRX, error)
 	Update(trx *model.TRX) error
+	UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time) error
 	Delete(id int) error
     CreateDetail(detail *model.DetailTRX) error
 }
@@ -53,6 +56,29 @@ func (r *trxRepository) GetByInvoiceCode(invoiceCode string) (*model.TRX, error)
 
 func (r *trxRepository) Update(trx *model.TRX) error {
 	return r.db.Save(trx).Error
+}
+
+// UpdatePaymentStatus updates only payment-related fields in transaction
+func (r *trxRepository) UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time) error {
+	updates := map[string]interface{}{
+		"payment_status": paymentStatus,
+	}
+
+	// Only update fields that are provided (non-empty)
+	if paymentToken != "" {
+		updates["payment_token"] = paymentToken
+	}
+	if paymentURL != "" {
+		updates["payment_url"] = paymentURL
+	}
+	if midtransOrderID != "" {
+		updates["midtrans_order_id"] = midtransOrderID
+	}
+	if paymentExpiredAt != nil {
+		updates["payment_expired_at"] = paymentExpiredAt
+	}
+
+	return r.db.Model(&model.TRX{}).Where("id = ?", trxID).Updates(updates).Error
 }
 
 func (r *trxRepository) Delete(id int) error {
