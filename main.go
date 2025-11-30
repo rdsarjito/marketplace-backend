@@ -56,12 +56,13 @@ func main() {
 
 	// Initialize shared services
 	emailService := services.NewEmailService()
+	midtransService := services.NewMidtransService(cfg.MidtransServerKey, cfg.MidtransClientKey, cfg.MidtransIsProduction)
 	authService := services.NewAuthService(userRepository, shopRepository, provinceCityRepository, emailService)
 	userService := services.NewUserService(userRepository, addressRepository)
 	categoryService := services.NewCategoryService(categoryRepository)
 	shopService := services.NewShopService(shopRepository)
 	productService := services.NewProductService(productRepository, shopRepository, categoryRepository)
-	trxService := services.NewTRXService(trxRepository, productRepository, addressRepository, shopRepository, categoryRepository)
+	trxService := services.NewTRXService(trxRepository, productRepository, addressRepository, shopRepository, categoryRepository, userRepository, midtransService)
 	mediaStorage, err := storage.NewMinioStorageFromEnv()
 	if err != nil {
 		log.Fatal(err)
@@ -75,6 +76,7 @@ func main() {
 	shopHandler := handlers.NewShopHandler(shopService)
 	productHandler := handlers.NewProductHandler(productService, mediaStorage)
 	trxHandler := handlers.NewTRXHandler(trxService)
+	paymentHandler := handlers.NewPaymentHandler(trxService)
 
 	// Initialize middleware
 	authMiddleware := middleware.AuthMiddleware(userService)
@@ -95,6 +97,9 @@ func main() {
 	api.Get("/provcity/detailprovince/:prov_id", provinceCityHandler.GetDetailProvince)
 	api.Get("/provcity/listcities/:prov_id", provinceCityHandler.GetListCity)
 	api.Get("/provcity/detailcity/:city_id", provinceCityHandler.GetDetailCity)
+
+	// Payment webhook (public - Midtrans will POST to this endpoint)
+	api.Post("/payment/webhook", paymentHandler.HandleWebhook)
 
 	// Protected routes
 	api.Use(authMiddleware)
@@ -133,6 +138,7 @@ func main() {
 	api.Get("/trx", trxHandler.GetListTRX)
 	api.Get("/trx/:id", trxHandler.GetDetailTRX)
 	api.Post("/trx", trxHandler.CreateTRX)
+	api.Post("/trx/:id/check-payment", trxHandler.CheckPayment)
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
