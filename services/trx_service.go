@@ -29,9 +29,10 @@ type trxService struct {
 	categoryRepo    repositories.CategoryRepository
 	userRepo        repositories.UserRepository
 	midtransService MidtransService
+	emailService    EmailService
 }
 
-func NewTRXService(trxRepo repositories.TRXRepository, productRepo repositories.ProductRepository, addressRepo repositories.AddressRepository, shopRepo repositories.ShopRepository, categoryRepo repositories.CategoryRepository, userRepo repositories.UserRepository, midtransService MidtransService) TRXService {
+func NewTRXService(trxRepo repositories.TRXRepository, productRepo repositories.ProductRepository, addressRepo repositories.AddressRepository, shopRepo repositories.ShopRepository, categoryRepo repositories.CategoryRepository, userRepo repositories.UserRepository, midtransService MidtransService, emailService EmailService) TRXService {
 	return &trxService{
 		trxRepo:         trxRepo,
 		productRepo:     productRepo,
@@ -40,6 +41,7 @@ func NewTRXService(trxRepo repositories.TRXRepository, productRepo repositories.
 		categoryRepo:    categoryRepo,
 		userRepo:        userRepo,
 		midtransService: midtransService,
+		emailService:    emailService,
 	}
 }
 
@@ -293,6 +295,9 @@ func (s *trxService) HandlePaymentWebhook(notification map[string]interface{}) e
 		return fmt.Errorf("transaction not found: %w", err)
 	}
 
+	// Store old status for email notification
+	oldStatus := trx.PaymentStatus
+
 	// Map Midtrans transaction status to our payment status
 	paymentStatusStr := s.mapMidtransStatusToPaymentStatus(paymentStatus.TransactionStatus)
 
@@ -300,6 +305,22 @@ func (s *trxService) HandlePaymentWebhook(notification map[string]interface{}) e
 	trx.PaymentStatus = paymentStatusStr
 	if err := s.trxRepo.Update(trx); err != nil {
 		return fmt.Errorf("failed to update transaction: %w", err)
+	}
+
+	// Send email notification if status changed to paid or expired
+	if oldStatus != paymentStatusStr {
+		// Get user email from transaction
+		user, err := s.userRepo.GetByID(trx.IDUser)
+		if err == nil {
+			// Send email notification asynchronously (don't block webhook)
+			go func() {
+				if paymentStatusStr == "paid" {
+					_ = s.emailService.SendPaymentSuccessEmail(user.Email, trx.KodeInvoice, trx.HargaTotal)
+				} else if paymentStatusStr == "expired" {
+					_ = s.emailService.SendPaymentExpiredEmail(user.Email, trx.KodeInvoice, trx.HargaTotal)
+				}
+			}()
+		}
 	}
 
 	return nil
