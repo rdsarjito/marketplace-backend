@@ -81,6 +81,14 @@ marketplace-backend/
 
    # Integration
    API_LOCATION=https://emsifa.github.io/api-wilayah-indonesia/api
+
+   # Storage (MinIO)
+   MINIO_ENDPOINT=http://localhost:9000
+   MINIO_ACCESS_KEY=admin
+   MINIO_SECRET_KEY=admin123
+   MINIO_BUCKET_NAME=product-media
+   ASSET_BASE_URL=http://localhost:9000/product-media
+   MINIO_USE_SSL=false
    ```
 
 4. **Setup database**
@@ -93,6 +101,26 @@ marketplace-backend/
    ```
 
 The server will start on `http://localhost:8080`
+
+### MinIO Setup (Local)
+
+1. **Start MinIO via Docker**
+   ```bash
+   docker run -d --name minio \
+     -p 9000:9000 -p 9090:9090 \
+     -e MINIO_ROOT_USER=admin \
+     -e MINIO_ROOT_PASSWORD=admin123 \
+     -v ~/minio-data:/data \
+     minio/minio server /data --console-address ":9090"
+   ```
+2. **Create bucket**
+   - Open `http://localhost:9090`, log in with the credentials above.
+   - Create a bucket named `product-media` (or match `MINIO_BUCKET_NAME`).
+3. **Update `.env`**
+   - Ensure the values under the *Storage (MinIO)* block match the server/bucket.
+   - `ASSET_BASE_URL` should point to the public path of the bucket (path-style by default).
+
+For production deployments, front MinIO with HTTPS (reverse proxy or load balancer) and rotate `MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` to strong secrets. Enable versioning & regular backups to protect media assets.
 
 ## API Endpoints
 

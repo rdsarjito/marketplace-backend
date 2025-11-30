@@ -9,7 +9,6 @@ type CategoryRepository interface {
 	Create(category *model.Category) error
 	GetByID(id int) (*model.Category, error)
 	GetAll() ([]model.Category, error)
-    GetByName(name string) (*model.Category, error)
 	Update(category *model.Category) error
 	Delete(id int) error
 }
@@ -39,15 +38,6 @@ func (r *categoryRepository) GetAll() ([]model.Category, error) {
 	var categories []model.Category
 	err := r.db.Find(&categories).Error
 	return categories, err
-}
-
-func (r *categoryRepository) GetByName(name string) (*model.Category, error) {
-    var category model.Category
-    err := r.db.Where("nama = ?", name).First(&category).Error
-    if err != nil {
-        return nil, err
-    }
-    return &category, nil
 }
 
 func (r *categoryRepository) Update(category *model.Category) error {

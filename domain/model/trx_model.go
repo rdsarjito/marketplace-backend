@@ -7,15 +7,20 @@ import (
 )
 
 type TRX struct {
-	ID           int            `gorm:"type:int;primaryKey;autoIncrement"`
-	HargaTotal   int            `gorm:"type:int;not null"`
-	KodeInvoice  string         `gorm:"type:varchar(255);not null;uniqueIndex:idx_kode_invoice"`
-	MethodBayar  string         `gorm:"type:varchar(255);not null"`
-	CreatedAt    time.Time      `gorm:"type:timestamp;not null;default:current_timestamp"`
-	UpdatedAt    time.Time      `gorm:"type:timestamp"`
-	DeletedAt    gorm.DeletedAt `gorm:"index"`
-	IDUser       int            `gorm:"type:int;not null"`
-	IDAlamat     int            `gorm:"type:int;not null"`
+	ID               int            `gorm:"type:int;primaryKey;autoIncrement"`
+	HargaTotal       int            `gorm:"type:int;not null"`
+	KodeInvoice      string         `gorm:"type:varchar(255);not null;uniqueIndex:idx_kode_invoice"`
+	MethodBayar      string         `gorm:"type:varchar(255);not null"`
+	PaymentStatus    string         `gorm:"type:varchar(50);default:'pending_payment'"`
+	PaymentToken     string         `gorm:"type:varchar(255);null"`
+	PaymentURL       string         `gorm:"type:text;null"`
+	MidtransOrderID  string         `gorm:"type:varchar(255);null;index:idx_midtrans_order_id"`
+	PaymentExpiredAt *time.Time     `gorm:"type:timestamp;null"`
+	CreatedAt        time.Time      `gorm:"type:timestamp;not null;default:current_timestamp"`
+	UpdatedAt        time.Time      `gorm:"type:timestamp"`
+	DeletedAt        gorm.DeletedAt `gorm:"index"`
+	IDUser           int            `gorm:"type:int;not null"`
+	IDAlamat         int            `gorm:"type:int;not null"`
 
 	User         User           `gorm:"foreignKey:IDUser;references:ID"`
 	Address      Address        `gorm:"foreignKey:IDAlamat;references:ID"`
