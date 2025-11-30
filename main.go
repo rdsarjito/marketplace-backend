@@ -62,7 +62,7 @@ func main() {
 	categoryService := services.NewCategoryService(categoryRepository)
 	shopService := services.NewShopService(shopRepository)
 	productService := services.NewProductService(productRepository, shopRepository, categoryRepository)
-	trxService := services.NewTRXService(trxRepository, productRepository, addressRepository, shopRepository, categoryRepository, userRepository, midtransService, emailService)
+	trxService := services.NewTRXService(trxRepository, productRepository, addressRepository, shopRepository, categoryRepository, userRepository, midtransService, emailService, cfg.FrontendURL)
 	mediaStorage, err := storage.NewMinioStorageFromEnv()
 	if err != nil {
 		log.Fatal(err)

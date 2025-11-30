@@ -30,9 +30,10 @@ type trxService struct {
 	userRepo        repositories.UserRepository
 	midtransService MidtransService
 	emailService    EmailService
+	frontendURL     string // Frontend URL for payment redirect
 }
 
-func NewTRXService(trxRepo repositories.TRXRepository, productRepo repositories.ProductRepository, addressRepo repositories.AddressRepository, shopRepo repositories.ShopRepository, categoryRepo repositories.CategoryRepository, userRepo repositories.UserRepository, midtransService MidtransService, emailService EmailService) TRXService {
+func NewTRXService(trxRepo repositories.TRXRepository, productRepo repositories.ProductRepository, addressRepo repositories.AddressRepository, shopRepo repositories.ShopRepository, categoryRepo repositories.CategoryRepository, userRepo repositories.UserRepository, midtransService MidtransService, emailService EmailService, frontendURL string) TRXService {
 	return &trxService{
 		trxRepo:         trxRepo,
 		productRepo:     productRepo,
@@ -42,6 +43,7 @@ func NewTRXService(trxRepo repositories.TRXRepository, productRepo repositories.
 		userRepo:        userRepo,
 		midtransService: midtransService,
 		emailService:    emailService,
+		frontendURL:     frontendURL,
 	}
 }
 
@@ -192,6 +194,9 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		}
 		customerDetails["billing_address"] = billingAddress
 
+		// Build finish URL for redirect after payment
+		finishURL := fmt.Sprintf("%s/payment/%d", s.frontendURL, trx.ID)
+
 		// Create payment request
 		midtransReq := &CreatePaymentRequest{
 			OrderID:         kodeInvoice,
@@ -203,6 +208,7 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 				ExpiryDuration: 24 * 60, // 24 hours in minutes
 				Unit:           "minute",
 			},
+			FinishURL: finishURL,
 		}
 
 		// Call Midtrans service

@@ -33,6 +33,7 @@ type CreatePaymentRequest struct {
 	CustomerDetails map[string]interface{}   `json:"customer_details"`
 	ItemDetails     []map[string]interface{} `json:"item_details"`
 	CustomExpiry    *CustomExpiry            `json:"custom_expiry,omitempty"`
+	FinishURL       string                   `json:"finish_url,omitempty"` // URL untuk redirect setelah payment selesai
 }
 
 // CustomExpiry untuk set expiration time
@@ -104,6 +105,11 @@ func (s *midtransService) CreatePayment(req *CreatePaymentRequest) (*CreatePayme
 		},
 		"customer_details": req.CustomerDetails,
 		"item_details":     req.ItemDetails,
+	}
+
+	// Add finish_url if provided (for redirect after payment)
+	if req.FinishURL != "" {
+		requestBody["finish_url"] = req.FinishURL
 	}
 
 	// Add custom expiry if provided
