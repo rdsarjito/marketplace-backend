@@ -391,17 +391,26 @@ func (s *trxService) mapTRXToResponse(trx model.TRX) response.TRXResponse {
 		})
 	}
 
+	// Format payment expired at
+	var paymentExpiredAtStr string
+	if trx.PaymentExpiredAt != nil {
+		paymentExpiredAtStr = trx.PaymentExpiredAt.Format("2006-01-02 15:04:05")
+	}
+
 	return response.TRXResponse{
-		ID:          trx.ID,
-		HargaTotal:  trx.HargaTotal,
-		KodeInvoice: trx.KodeInvoice,
-		MethodBayar: trx.MethodBayar,
-		CreatedAt:   trx.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:   trx.UpdatedAt.Format("2006-01-02 15:04:05"),
-		IDUser:      trx.IDUser,
-		IDAlamat:    trx.IDAlamat,
-		User:        userResponse,
-		Address:     addressResponse,
-		DetailTRX:   detailResponses,
+		ID:               trx.ID,
+		HargaTotal:       trx.HargaTotal,
+		KodeInvoice:      trx.KodeInvoice,
+		MethodBayar:      trx.MethodBayar,
+		PaymentStatus:    trx.PaymentStatus,
+		PaymentURL:       trx.PaymentURL,
+		PaymentExpiredAt: paymentExpiredAtStr,
+		CreatedAt:        trx.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:        trx.UpdatedAt.Format("2006-01-02 15:04:05"),
+		IDUser:           trx.IDUser,
+		IDAlamat:         trx.IDAlamat,
+		User:             userResponse,
+		Address:          addressResponse,
+		DetailTRX:        detailResponses,
 	}
 }
