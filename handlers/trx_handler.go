@@ -69,3 +69,20 @@ func (h *TRXHandler) CreateTRX(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(response.SuccessResponse(constants.MsgTransactionCreated, trx))
 }
+
+// CheckPayment checks payment status for a transaction
+func (h *TRXHandler) CheckPayment(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(int)
+
+	trxID, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Invalid transaction ID", nil))
+	}
+
+	trx, err := h.trxService.CheckPaymentStatus(userID, trxID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse(err.Error(), nil))
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse("Payment status checked successfully", trx))
+}

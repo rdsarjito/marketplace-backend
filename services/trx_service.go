@@ -18,6 +18,7 @@ type TRXService interface {
 	GetDetailTRX(userID, trxID int) (*response.TRXResponse, error)
 	CreateTRX(userID int, req *request.CreateTRXRequest) (*response.TRXResponse, error)
 	HandlePaymentWebhook(notification map[string]interface{}) error
+	CheckPaymentStatus(userID, trxID int) (*response.TRXResponse, error)
 }
 
 type trxService struct {
@@ -320,6 +321,53 @@ func (s *trxService) mapMidtransStatusToPaymentStatus(midtransStatus string) str
 	default:
 		return "pending_payment"
 	}
+}
+
+// CheckPaymentStatus manually checks payment status for a transaction
+func (s *trxService) CheckPaymentStatus(userID, trxID int) (*response.TRXResponse, error) {
+	// Get transaction and validate ownership
+	trx, err := s.trxRepo.GetByID(trxID)
+	if err != nil {
+		return nil, errors.New("Transaction not found")
+	}
+
+	if trx.IDUser != userID {
+		return nil, errors.New(constants.ErrForbidden)
+	}
+
+	// Only check payment for non-COD transactions
+	if trx.MethodBayar == "COD" {
+		return nil, errors.New("COD transactions do not require payment verification")
+	}
+
+	// Check if transaction has invoice code
+	if trx.KodeInvoice == "" {
+		return nil, errors.New("Transaction does not have invoice code")
+	}
+
+	// Verify payment status from Midtrans
+	paymentStatus, err := s.midtransService.VerifyPayment(trx.KodeInvoice)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify payment: %w", err)
+	}
+
+	// Map Midtrans status to our payment status
+	paymentStatusStr := s.mapMidtransStatusToPaymentStatus(paymentStatus.TransactionStatus)
+
+	// Update transaction payment status
+	trx.PaymentStatus = paymentStatusStr
+	if err := s.trxRepo.Update(trx); err != nil {
+		return nil, fmt.Errorf("failed to update transaction: %w", err)
+	}
+
+	// Get updated transaction with relations
+	updatedTRX, err := s.trxRepo.GetByID(trxID)
+	if err != nil {
+		return nil, err
+	}
+
+	trxResponse := s.mapTRXToResponse(*updatedTRX)
+	return &trxResponse, nil
 }
 
 func (s *trxService) mapTRXToResponse(trx model.TRX) response.TRXResponse {
