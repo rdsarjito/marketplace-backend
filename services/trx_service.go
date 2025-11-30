@@ -17,6 +17,7 @@ type TRXService interface {
 	GetListTRX(userID int) ([]response.TRXResponse, error)
 	GetDetailTRX(userID, trxID int) (*response.TRXResponse, error)
 	CreateTRX(userID int, req *request.CreateTRXRequest) (*response.TRXResponse, error)
+	HandlePaymentWebhook(notification map[string]interface{}) error
 }
 
 type trxService struct {
@@ -268,6 +269,56 @@ func (s *trxService) mapPaymentMethodToMidtransType(methodBayar string) string {
 		return "credit_card"
 	default:
 		return "bank_transfer" // Default fallback
+	}
+}
+
+// HandlePaymentWebhook handles webhook notification from Midtrans
+func (s *trxService) HandlePaymentWebhook(notification map[string]interface{}) error {
+	// Get order_id from notification
+	orderID, ok := notification["order_id"].(string)
+	if !ok {
+		return fmt.Errorf("invalid notification: missing order_id")
+	}
+
+	// Verify payment status from Midtrans
+	paymentStatus, err := s.midtransService.VerifyPayment(orderID)
+	if err != nil {
+		return fmt.Errorf("failed to verify payment: %w", err)
+	}
+
+	// Find transaction by invoice code (order_id)
+	trx, err := s.trxRepo.GetByInvoiceCode(orderID)
+	if err != nil {
+		return fmt.Errorf("transaction not found: %w", err)
+	}
+
+	// Map Midtrans transaction status to our payment status
+	paymentStatusStr := s.mapMidtransStatusToPaymentStatus(paymentStatus.TransactionStatus)
+
+	// Update transaction payment status
+	trx.PaymentStatus = paymentStatusStr
+	if err := s.trxRepo.Update(trx); err != nil {
+		return fmt.Errorf("failed to update transaction: %w", err)
+	}
+
+	return nil
+}
+
+// mapMidtransStatusToPaymentStatus maps Midtrans transaction status to our payment status
+func (s *trxService) mapMidtransStatusToPaymentStatus(midtransStatus string) string {
+	switch midtransStatus {
+	case "settlement":
+		return "paid"
+	case "pending":
+		return "pending_payment"
+	case "expire":
+		return "expired"
+	case "cancel", "deny":
+		return "cancelled"
+	case "failure":
+		return "failed"
+	default:
+		return "pending_payment"
 	}
 }
 

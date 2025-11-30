@@ -9,6 +9,7 @@ type TRXRepository interface {
 	Create(trx *model.TRX) error
 	GetByID(id int) (*model.TRX, error)
 	GetByUserID(userID int) ([]model.TRX, error)
+	GetByInvoiceCode(invoiceCode string) (*model.TRX, error)
 	Update(trx *model.TRX) error
 	Delete(id int) error
     CreateDetail(detail *model.DetailTRX) error
@@ -39,6 +40,15 @@ func (r *trxRepository) GetByUserID(userID int) ([]model.TRX, error) {
 	var trxs []model.TRX
 	err := r.db.Preload("User").Preload("Address").Preload("DetailTRX.Product").Preload("DetailTRX.Shop").Where("id_user = ?", userID).Find(&trxs).Error
 	return trxs, err
+}
+
+func (r *trxRepository) GetByInvoiceCode(invoiceCode string) (*model.TRX, error) {
+	var trx model.TRX
+	err := r.db.Preload("User").Preload("Address").Preload("DetailTRX.Product").Preload("DetailTRX.Shop").Where("kode_invoice = ?", invoiceCode).First(&trx).Error
+	if err != nil {
+		return nil, err
+	}
+	return &trx, nil
 }
 
 func (r *trxRepository) Update(trx *model.TRX) error {
