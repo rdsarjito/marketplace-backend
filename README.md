@@ -11,6 +11,9 @@ A comprehensive marketplace backend API built with Go and Fiber framework, imple
 - **Shop Management**: Shop creation and management
 - **Product Management**: Product CRUD with photo support
 - **Transaction System**: Order processing with invoice generation
+- **Payment Gateway Integration**: Midtrans payment gateway integration (Virtual Account, E-Wallet, Bank Transfer, Credit Card, COD)
+- **Payment Status Tracking**: Real-time payment status updates via webhook
+- **Email Notifications**: Payment success and expiration notifications
 - **External API Integration**: Integration with API Wilayah Indonesia for province/city data
 
 ## Tech Stack
@@ -89,13 +92,33 @@ marketplace-backend/
    MINIO_BUCKET_NAME=product-media
    ASSET_BASE_URL=http://localhost:9000/product-media
    MINIO_USE_SSL=false
+
+   # Payment Gateway (Midtrans)
+   MIDTRANS_SERVER_KEY=SB-Mid-server-xxxxxxxxxxxxx
+   MIDTRANS_CLIENT_KEY=SB-Mid-client-xxxxxxxxxxxxx
+   MIDTRANS_IS_PRODUCTION=false
+
+   # Frontend URL (for payment redirect)
+   FRONTEND_URL=http://localhost:5173
    ```
 
 4. **Setup database**
    - Create a MySQL database named `marketplace_backend`
    - The application will automatically create tables on first run
+   - For payment features, run the migration script (optional, GORM AutoMigrate will handle it):
+     ```bash
+     # Migration is handled automatically by GORM AutoMigrate
+     # Manual migration script available at: migrations/001_add_payment_fields_to_trx.sql
+     ```
 
-5. **Run the application**
+5. **Setup Midtrans Payment Gateway** (Optional)
+   - Register at [Midtrans Dashboard](https://dashboard.midtrans.com/)
+   - Get your **Server Key** and **Client Key** from Settings → Access Keys
+   - Add the keys to your `.env` file (see above)
+   - For testing, use Sandbox keys (set `MIDTRANS_IS_PRODUCTION=false`)
+   - See [PAYMENT_TESTING.md](./PAYMENT_TESTING.md) for detailed testing guide
+
+6. **Run the application**
    ```bash
    go run main.go
    ```
@@ -167,6 +190,10 @@ For production deployments, front MinIO with HTTPS (reverse proxy or load balanc
 - `GET /api/v1/trx` - Get transactions list
 - `GET /api/v1/trx/:id` - Get transaction detail
 - `POST /api/v1/trx` - Create transaction
+- `POST /api/v1/trx/:id/check-payment` - Check payment status manually
+
+### Payment Gateway
+- `POST /api/v1/payment/webhook` - Midtrans payment webhook endpoint (public)
 
 ### Health Check
 - `GET /health` - Server health check
@@ -179,6 +206,39 @@ Most endpoints require authentication. Include the JWT token in the Authorizatio
 Authorization: Bearer <your-jwt-token>
 ```
 
+## Payment Gateway Integration
+
+This application integrates with **Midtrans** payment gateway to support multiple payment methods:
+
+### Supported Payment Methods
+
+- **COD (Cash on Delivery)**: Direct payment on delivery
+- **Virtual Account**: Bank transfer via Virtual Account (BCA, BNI, Mandiri)
+- **E-Wallet**: GoPay, OVO, DANA, LinkAja
+- **Bank Transfer**: Direct bank transfer (BCA, BNI, Mandiri)
+- **Credit Card**: Credit card payment with 3DS support
+
+### Payment Flow
+
+1. **Create Transaction**: User creates transaction with selected payment method
+2. **Payment Creation**: For non-COD methods, payment is created via Midtrans API
+3. **Payment URL**: User is redirected to Midtrans payment page
+4. **Payment Processing**: User completes payment on Midtrans
+5. **Webhook Notification**: Midtrans sends webhook to update payment status
+6. **Status Update**: Transaction status is updated automatically
+
+### Payment Status
+
+- `pending_payment`: Payment is pending
+- `paid`: Payment completed successfully
+- `expired`: Payment expired
+- `failed`: Payment failed
+- `cancelled`: Payment cancelled
+
+### Setup & Testing
+
+For detailed setup instructions and testing guide, see [PAYMENT_TESTING.md](./PAYMENT_TESTING.md)
+
 ## Database Schema
 
 The application uses the following main entities:
@@ -188,7 +248,7 @@ The application uses the following main entities:
 - **Categories**: Product categories
 - **Products**: Products with photos and stock management
 - **Addresses**: User delivery addresses
-- **Transactions**: Orders with detailed line items
+- **Transactions**: Orders with detailed line items and payment information
 
 ## Development
 

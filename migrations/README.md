@@ -50,3 +50,4 @@ ALTER TABLE trx DROP COLUMN payment_status;
 - For existing production databases, run the SQL migration script first
 - The migration is idempotent - running it multiple times won't cause errors (except for index creation)
 
+

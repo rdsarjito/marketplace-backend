@@ -83,6 +83,12 @@ func NewMidtransService(serverKey, clientKey string, isProduction bool) Midtrans
 		baseURL = "https://api.midtrans.com"
 	}
 
+	// Validate server key (should not be empty)
+	if serverKey == "" {
+		// Log warning but don't fail - will fail when trying to create payment
+		fmt.Println("WARNING: Midtrans Server Key is empty. Payment creation will fail.")
+	}
+
 	return &midtransService{
 		serverKey:    serverKey,
 		clientKey:    clientKey,
@@ -97,8 +103,11 @@ func NewMidtransService(serverKey, clientKey string, isProduction bool) Midtrans
 // CreatePayment membuat payment request ke Midtrans
 func (s *midtransService) CreatePayment(req *CreatePaymentRequest) (*CreatePaymentResponse, error) {
 	// Build request body
+	// Note: For e_wallet, payment_type should be the specific wallet (gopay, ovo, dana, linkaja)
+	// not "e_wallet" itself
+	paymentType := req.PaymentType
+
 	requestBody := map[string]interface{}{
-		"payment_type": req.PaymentType,
 		"transaction_details": map[string]interface{}{
 			"order_id":     req.OrderID,
 			"gross_amount": req.GrossAmount,
@@ -118,21 +127,32 @@ func (s *midtransService) CreatePayment(req *CreatePaymentRequest) (*CreatePayme
 	}
 
 	// Add payment-specific parameters based on payment type
-	switch req.PaymentType {
-	case "bank_transfer":
+	switch paymentType {
+	case "bank_transfer", "virtual_account":
 		// Bank transfer (BCA, BNI, Mandiri, etc)
+		requestBody["payment_type"] = "bank_transfer"
 		requestBody["bank_transfer"] = map[string]interface{}{
 			"bank": "bca", // default, bisa diubah sesuai kebutuhan
 		}
-	case "virtual_account":
-		// Virtual Account
-		requestBody["bank_transfer"] = map[string]interface{}{
-			"bank": "bca", // default
+	case "e_wallet", "gopay", "ovo", "dana", "linkaja":
+		// E-Wallet - payment_type should be the specific wallet name
+		// Map to specific wallet or default to gopay
+		walletType := "gopay" // default
+		if paymentType == "ovo" {
+			walletType = "ovo"
+		} else if paymentType == "dana" {
+			walletType = "dana"
+		} else if paymentType == "linkaja" {
+			walletType = "linkaja"
 		}
-	case "e_wallet":
-		// E-Wallet (GoPay, OVO, DANA, LinkAja)
-		requestBody["e_wallet"] = map[string]interface{}{
-			"store": "gopay", // default, bisa diubah
+		requestBody["payment_type"] = walletType
+	case "credit_card", "cc":
+		requestBody["payment_type"] = "credit_card"
+	default:
+		// Default to bank_transfer
+		requestBody["payment_type"] = "bank_transfer"
+		requestBody["bank_transfer"] = map[string]interface{}{
+			"bank": "bca",
 		}
 	}
 
@@ -175,7 +195,39 @@ func (s *midtransService) CreatePayment(req *CreatePaymentRequest) (*CreatePayme
 
 	// Check for errors
 	if response.StatusCode != "201" && response.StatusCode != "200" {
-		return nil, fmt.Errorf("midtrans API error: %s - %s", response.StatusCode, response.StatusMessage)
+		// Return more detailed error message including response body for debugging
+		return nil, fmt.Errorf("midtrans API error [%s]: %s. Response: %s", response.StatusCode, response.StatusMessage, string(body))
+	}
+
+	// For bank_transfer/virtual_account, Midtrans doesn't always return redirect_url
+	// Instead, it returns VA numbers or transfer instructions
+	// We need to check if we have either redirect_url OR va_numbers
+	hasRedirectURL := response.RedirectURL != ""
+	hasToken := response.Token != ""
+	hasVaNumbers := len(response.VaNumbers) > 0
+	hasActions := len(response.Actions) > 0
+
+	// For bank_transfer/virtual_account, va_numbers or actions are valid
+	// For e_wallet (gopay, ovo, etc), actions with deeplink-redirect or qr-code are valid
+	// For credit_card, redirect_url or token is required
+	isBankTransfer := paymentType == "bank_transfer" || paymentType == "virtual_account"
+	isEWallet := paymentType == "gopay" || paymentType == "ovo" || paymentType == "dana" || paymentType == "linkaja"
+
+	if isBankTransfer {
+		// Bank transfer is valid if we have va_numbers or actions
+		if !hasVaNumbers && !hasActions && !hasRedirectURL {
+			return nil, fmt.Errorf("midtrans API returned empty payment data for bank transfer. Status: %s - %s. Response: %s", response.StatusCode, response.StatusMessage, string(body))
+		}
+	} else if isEWallet {
+		// For e_wallet, actions with deeplink-redirect or qr-code are valid
+		if !hasActions && !hasRedirectURL && !hasToken {
+			return nil, fmt.Errorf("midtrans API returned empty payment data for e-wallet. Status: %s - %s. Response: %s", response.StatusCode, response.StatusMessage, string(body))
+		}
+	} else {
+		// For credit_card, we need redirect_url or token
+		if !hasRedirectURL && !hasToken {
+			return nil, fmt.Errorf("midtrans API returned empty payment URL. Status: %s - %s. Response: %s", response.StatusCode, response.StatusMessage, string(body))
+		}
 	}
 
 	return &response, nil

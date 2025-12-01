@@ -215,9 +215,10 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		paymentResp, err := s.midtransService.CreatePayment(midtransReq)
 		if err != nil {
 			// If payment creation fails, still return transaction but with error status
-			trx.PaymentStatus = "failed"
-			s.trxRepo.Update(trx)
-			return nil, fmt.Errorf("failed to create payment: %w", err)
+			// Use UpdatePaymentStatus to avoid updating created_at
+			s.trxRepo.UpdatePaymentStatus(trx.ID, "failed", "", "", "", nil)
+			// Return more detailed error message
+			return nil, fmt.Errorf("failed to create payment with Midtrans: %w. Please check your Midtrans Server Key configuration", err)
 		}
 
 		// Parse expiry time (Midtrans returns in various formats)
@@ -239,13 +240,42 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		}
 
 		// Update transaction with payment info
-		trx.PaymentToken = paymentResp.Token
-		trx.PaymentURL = paymentResp.RedirectURL
-		trx.MidtransOrderID = paymentResp.OrderID
-		trx.PaymentExpiredAt = expiryTime
-		trx.PaymentStatus = "pending_payment"
-
-		if err := s.trxRepo.Update(trx); err != nil {
+		// For bank_transfer, RedirectURL might be empty, but we can use actions or va_numbers
+		// For e_wallet (gopay, ovo, etc), RedirectURL might be empty, but we can use actions
+		paymentURL := paymentResp.RedirectURL
+		if paymentURL == "" && len(paymentResp.Actions) > 0 {
+			// Try to get URL from actions
+			// Priority: deeplink-redirect > generate-qr-code-v2 > generate-qr-code > others
+			for _, action := range paymentResp.Actions {
+				name, _ := action["name"].(string)
+				url, ok := action["url"].(string)
+				if ok && url != "" {
+					// Prefer deeplink-redirect for e-wallet, or any URL for bank transfer
+					if name == "deeplink-redirect" {
+						paymentURL = url
+						break
+					} else if name == "generate-qr-code-v2" && paymentURL == "" {
+						paymentURL = url
+					} else if name == "generate-qr-code" && paymentURL == "" {
+						paymentURL = url
+					} else if paymentURL == "" {
+						paymentURL = url
+					}
+				}
+			}
+		}
+		// If still empty and we have va_numbers, we'll show VA info in payment status page
+		// PaymentURL can be empty for bank_transfer - frontend will handle displaying VA numbers
+		
+		// Use UpdatePaymentStatus to only update payment fields (avoid updating created_at)
+		if err := s.trxRepo.UpdatePaymentStatus(
+			trx.ID,
+			"pending_payment",
+			paymentResp.Token,
+			paymentURL,
+			paymentResp.OrderID,
+			expiryTime,
+		); err != nil {
 			return nil, fmt.Errorf("failed to update transaction with payment info: %w", err)
 		}
     }
@@ -266,12 +296,22 @@ func (s *trxService) generateInvoiceCode() string {
 }
 
 // mapPaymentMethodToMidtransType maps our payment method to Midtrans payment type
+// For e_wallet, returns the specific wallet name (gopay, ovo, dana, linkaja)
+// For other methods, returns the payment type
 func (s *trxService) mapPaymentMethodToMidtransType(methodBayar string) string {
 	switch methodBayar {
 	case "virtual_account", "va":
-		return "bank_transfer" // Will be configured as VA in the service
-	case "e_wallet", "ewallet", "gopay", "ovo", "dana", "linkaja":
-		return "e_wallet"
+		return "virtual_account" // Will be configured as VA in the service
+	case "gopay":
+		return "gopay"
+	case "ovo":
+		return "ovo"
+	case "dana":
+		return "dana"
+	case "linkaja":
+		return "linkaja"
+	case "e_wallet", "ewallet":
+		return "gopay" // Default to gopay for generic e_wallet
 	case "bank_transfer", "bank_transfer_bca", "bank_transfer_bni", "bank_transfer_mandiri":
 		return "bank_transfer"
 	case "credit_card", "cc":
@@ -307,9 +347,8 @@ func (s *trxService) HandlePaymentWebhook(notification map[string]interface{}) e
 	// Map Midtrans transaction status to our payment status
 	paymentStatusStr := s.mapMidtransStatusToPaymentStatus(paymentStatus.TransactionStatus)
 
-	// Update transaction payment status
-	trx.PaymentStatus = paymentStatusStr
-	if err := s.trxRepo.Update(trx); err != nil {
+	// Update transaction payment status (use UpdatePaymentStatus to avoid updating created_at)
+	if err := s.trxRepo.UpdatePaymentStatus(trx.ID, paymentStatusStr, "", "", "", nil); err != nil {
 		return fmt.Errorf("failed to update transaction: %w", err)
 	}
 
@@ -381,9 +420,8 @@ func (s *trxService) CheckPaymentStatus(userID, trxID int) (*response.TRXRespons
 	// Map Midtrans status to our payment status
 	paymentStatusStr := s.mapMidtransStatusToPaymentStatus(paymentStatus.TransactionStatus)
 
-	// Update transaction payment status
-	trx.PaymentStatus = paymentStatusStr
-	if err := s.trxRepo.Update(trx); err != nil {
+	// Update transaction payment status (use UpdatePaymentStatus to avoid updating created_at)
+	if err := s.trxRepo.UpdatePaymentStatus(trxID, paymentStatusStr, "", "", "", nil); err != nil {
 		return nil, fmt.Errorf("failed to update transaction: %w", err)
 	}
 
