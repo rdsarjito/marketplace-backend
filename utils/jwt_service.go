@@ -9,7 +9,7 @@ import (
 )
 
 type JWTClaims struct {
-	UserID int  `json:"user_id"`
+	UserID  int  `json:"user_id"`
 	IsAdmin bool `json:"is_admin"`
 	jwt.RegisteredClaims
 }
@@ -24,7 +24,7 @@ func GenerateToken(userID int, isAdmin bool) (string, error) {
 		UserID:  userID,
 		IsAdmin: isAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(2 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

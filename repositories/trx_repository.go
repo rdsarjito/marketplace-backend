@@ -13,9 +13,9 @@ type TRXRepository interface {
 	GetByUserID(userID int) ([]model.TRX, error)
 	GetByInvoiceCode(invoiceCode string) (*model.TRX, error)
 	Update(trx *model.TRX) error
-	UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time) error
+	UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time, paymentVANumbersJSON string) error
 	Delete(id int) error
-    CreateDetail(detail *model.DetailTRX) error
+	CreateDetail(detail *model.DetailTRX) error
 }
 
 type trxRepository struct {
@@ -59,7 +59,7 @@ func (r *trxRepository) Update(trx *model.TRX) error {
 }
 
 // UpdatePaymentStatus updates only payment-related fields in transaction
-func (r *trxRepository) UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time) error {
+func (r *trxRepository) UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time, paymentVANumbersJSON string) error {
 	updates := map[string]interface{}{
 		"payment_status": paymentStatus,
 	}
@@ -77,6 +77,9 @@ func (r *trxRepository) UpdatePaymentStatus(trxID int, paymentStatus string, pay
 	if paymentExpiredAt != nil {
 		updates["payment_expired_at"] = paymentExpiredAt
 	}
+	if paymentVANumbersJSON != "" {
+		updates["payment_va_numbers"] = paymentVANumbersJSON
+	}
 
 	return r.db.Model(&model.TRX{}).Where("id = ?", trxID).Updates(updates).Error
 }
@@ -86,5 +89,5 @@ func (r *trxRepository) Delete(id int) error {
 }
 
 func (r *trxRepository) CreateDetail(detail *model.DetailTRX) error {
-    return r.db.Create(detail).Error
+	return r.db.Create(detail).Error
 }

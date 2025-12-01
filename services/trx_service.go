@@ -1,9 +1,11 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rdsarjito/marketplace-backend/constants"
@@ -72,6 +74,7 @@ func (s *trxService) GetDetailTRX(userID, trxID int) (*response.TRXResponse, err
 	}
 
 	trxResponse := s.mapTRXToResponse(*trx)
+	s.attachVANumbersIfNeeded(trx, &trxResponse)
 	return &trxResponse, nil
 }
 
@@ -147,23 +150,23 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		return nil, err
 	}
 
-    // Create detail transactions and update stock
+	// Create detail transactions and update stock
 	var itemDetails []map[string]interface{}
-    for _, detailReq := range req.DetailTRX {
-        // Update product stock
-        product, _ := s.productRepo.GetByID(detailReq.IDProduk)
-        product.Stok -= detailReq.Kuantitas
-        s.productRepo.Update(product)
+	for _, detailReq := range req.DetailTRX {
+		// Update product stock
+		product, _ := s.productRepo.GetByID(detailReq.IDProduk)
+		product.Stok -= detailReq.Kuantitas
+		s.productRepo.Update(product)
 
-        // Create detail record
-        detail := &model.DetailTRX{
-            IDTRX:      trx.ID,
-            IDProduk:   detailReq.IDProduk,
-            IDToko:     detailReq.IDToko,
-            Kuantitas:  detailReq.Kuantitas,
-            HargaTotal: detailReq.HargaTotal,
-        }
-        _ = s.trxRepo.CreateDetail(detail)
+		// Create detail record
+		detail := &model.DetailTRX{
+			IDTRX:      trx.ID,
+			IDProduk:   detailReq.IDProduk,
+			IDToko:     detailReq.IDToko,
+			Kuantitas:  detailReq.Kuantitas,
+			HargaTotal: detailReq.HargaTotal,
+		}
+		_ = s.trxRepo.CreateDetail(detail)
 
 		// Build item details for Midtrans
 		itemDetails = append(itemDetails, map[string]interface{}{
@@ -173,6 +176,9 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 			"name":     product.NamaProduk,
 		})
 	}
+
+	var lastPaymentResp *CreatePaymentResponse
+	var lastPaymentVANumbers []response.PaymentVANumber
 
 	// If payment method is not COD, create payment via Midtrans
 	if req.MethodBayar != "COD" {
@@ -216,7 +222,7 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		if err != nil {
 			// If payment creation fails, still return transaction but with error status
 			// Use UpdatePaymentStatus to avoid updating created_at
-			s.trxRepo.UpdatePaymentStatus(trx.ID, "failed", "", "", "", nil)
+			s.trxRepo.UpdatePaymentStatus(trx.ID, "failed", "", "", "", nil, "")
 			// Return more detailed error message
 			return nil, fmt.Errorf("failed to create payment with Midtrans: %w. Please check your Midtrans Server Key configuration", err)
 		}
@@ -266,7 +272,10 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		}
 		// If still empty and we have va_numbers, we'll show VA info in payment status page
 		// PaymentURL can be empty for bank_transfer - frontend will handle displaying VA numbers
-		
+
+		vaNumbers := mapVANumbersFromMidtrans(paymentResp.VaNumbers)
+		vaNumbersJSON := serializeVANumbersToJSON(vaNumbers)
+
 		// Use UpdatePaymentStatus to only update payment fields (avoid updating created_at)
 		if err := s.trxRepo.UpdatePaymentStatus(
 			trx.ID,
@@ -275,10 +284,14 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 			paymentURL,
 			paymentResp.OrderID,
 			expiryTime,
+			vaNumbersJSON,
 		); err != nil {
 			return nil, fmt.Errorf("failed to update transaction with payment info: %w", err)
 		}
-    }
+
+		lastPaymentResp = paymentResp
+		lastPaymentVANumbers = vaNumbers
+	}
 
 	// Get created transaction with relations
 	createdTRX, err := s.trxRepo.GetByID(trx.ID)
@@ -287,6 +300,19 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 	}
 
 	trxResponse := s.mapTRXToResponse(*createdTRX)
+	if lastPaymentResp != nil {
+		vaNumbers := lastPaymentVANumbers
+		if len(vaNumbers) == 0 {
+			vaNumbers = mapVANumbersFromMidtrans(lastPaymentResp.VaNumbers)
+		}
+		if len(vaNumbers) > 0 {
+			trxResponse.PaymentVANumbers = vaNumbers
+		} else {
+			s.attachVANumbersIfNeeded(createdTRX, &trxResponse)
+		}
+	} else {
+		s.attachVANumbersIfNeeded(createdTRX, &trxResponse)
+	}
 	return &trxResponse, nil
 }
 
@@ -346,9 +372,11 @@ func (s *trxService) HandlePaymentWebhook(notification map[string]interface{}) e
 
 	// Map Midtrans transaction status to our payment status
 	paymentStatusStr := s.mapMidtransStatusToPaymentStatus(paymentStatus.TransactionStatus)
+	vaNumbers := mapVANumbersFromMidtrans(paymentStatus.VaNumbers)
+	vaNumbersJSON := serializeVANumbersToJSON(vaNumbers)
 
 	// Update transaction payment status (use UpdatePaymentStatus to avoid updating created_at)
-	if err := s.trxRepo.UpdatePaymentStatus(trx.ID, paymentStatusStr, "", "", "", nil); err != nil {
+	if err := s.trxRepo.UpdatePaymentStatus(trx.ID, paymentStatusStr, "", "", "", nil, vaNumbersJSON); err != nil {
 		return fmt.Errorf("failed to update transaction: %w", err)
 	}
 
@@ -419,9 +447,11 @@ func (s *trxService) CheckPaymentStatus(userID, trxID int) (*response.TRXRespons
 
 	// Map Midtrans status to our payment status
 	paymentStatusStr := s.mapMidtransStatusToPaymentStatus(paymentStatus.TransactionStatus)
+	vaNumbers := mapVANumbersFromMidtrans(paymentStatus.VaNumbers)
+	vaNumbersJSON := serializeVANumbersToJSON(vaNumbers)
 
 	// Update transaction payment status (use UpdatePaymentStatus to avoid updating created_at)
-	if err := s.trxRepo.UpdatePaymentStatus(trxID, paymentStatusStr, "", "", "", nil); err != nil {
+	if err := s.trxRepo.UpdatePaymentStatus(trxID, paymentStatusStr, "", "", "", nil, vaNumbersJSON); err != nil {
 		return nil, fmt.Errorf("failed to update transaction: %w", err)
 	}
 
@@ -432,10 +462,17 @@ func (s *trxService) CheckPaymentStatus(userID, trxID int) (*response.TRXRespons
 	}
 
 	trxResponse := s.mapTRXToResponse(*updatedTRX)
+	vaNumbersUpdated := mapVANumbersFromMidtrans(paymentStatus.VaNumbers)
+	if len(vaNumbersUpdated) > 0 {
+		trxResponse.PaymentVANumbers = vaNumbersUpdated
+	} else {
+		s.attachVANumbersIfNeeded(updatedTRX, &trxResponse)
+	}
 	return &trxResponse, nil
 }
 
 func (s *trxService) mapTRXToResponse(trx model.TRX) response.TRXResponse {
+	paymentVANumbers := deserializeVANumbersFromString(trx.PaymentVANumbers)
 	// Map user
 	userResponse := response.UserProfile{
 		ID:           trx.User.ID,
@@ -518,6 +555,7 @@ func (s *trxService) mapTRXToResponse(trx model.TRX) response.TRXResponse {
 		PaymentStatus:    trx.PaymentStatus,
 		PaymentURL:       trx.PaymentURL,
 		PaymentExpiredAt: paymentExpiredAtStr,
+		PaymentVANumbers: paymentVANumbers,
 		CreatedAt:        trx.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:        trx.UpdatedAt.Format("2006-01-02 15:04:05"),
 		IDUser:           trx.IDUser,
@@ -525,5 +563,89 @@ func (s *trxService) mapTRXToResponse(trx model.TRX) response.TRXResponse {
 		User:             userResponse,
 		Address:          addressResponse,
 		DetailTRX:        detailResponses,
+	}
+}
+
+func (s *trxService) attachVANumbersIfNeeded(trx *model.TRX, trxResponse *response.TRXResponse) {
+	if trx == nil || trxResponse == nil {
+		return
+	}
+	if len(trxResponse.PaymentVANumbers) > 0 {
+		return
+	}
+	if !isVirtualAccountMethod(trx.MethodBayar) || trx.KodeInvoice == "" {
+		return
+	}
+	vaNumbers, err := s.fetchVANumbersFromMidtrans(trx.KodeInvoice)
+	if err != nil || len(vaNumbers) == 0 {
+		return
+	}
+	trxResponse.PaymentVANumbers = vaNumbers
+	_ = s.trxRepo.UpdatePaymentStatus(trx.ID, trx.PaymentStatus, "", "", "", nil, serializeVANumbersToJSON(vaNumbers))
+}
+
+func (s *trxService) fetchVANumbersFromMidtrans(orderID string) ([]response.PaymentVANumber, error) {
+	status, err := s.midtransService.VerifyPayment(orderID)
+	if err != nil {
+		return nil, err
+	}
+	return mapVANumbersFromMidtrans(status.VaNumbers), nil
+}
+
+func mapVANumbersFromMidtrans(vaData []map[string]interface{}) []response.PaymentVANumber {
+	var result []response.PaymentVANumber
+	for _, entry := range vaData {
+		bank, _ := entry["bank"].(string)
+		vaNumber, _ := entry["va_number"].(string)
+		if vaNumber == "" {
+			vaNumber, _ = entry["virtual_account_number"].(string)
+		}
+		if vaNumber == "" {
+			continue
+		}
+		result = append(result, response.PaymentVANumber{
+			Bank:     strings.ToUpper(bank),
+			VANumber: vaNumber,
+		})
+	}
+	return result
+}
+
+func serializeVANumbersToJSON(numbers []response.PaymentVANumber) string {
+	if len(numbers) == 0 {
+		return ""
+	}
+	bytes, err := json.Marshal(numbers)
+	if err != nil {
+		return ""
+	}
+	return string(bytes)
+}
+
+func deserializeVANumbersFromString(data string) []response.PaymentVANumber {
+	if strings.TrimSpace(data) == "" {
+		return nil
+	}
+	var numbers []response.PaymentVANumber
+	if err := json.Unmarshal([]byte(data), &numbers); err != nil {
+		return nil
+	}
+	return numbers
+}
+
+func normalizePaymentMethod(method string) string {
+	lower := strings.ToLower(method)
+	if normalized, ok := constants.PaymentMethodAliases[lower]; ok {
+		return normalized
+	}
+	return lower
+}
+
+func isVirtualAccountMethod(method string) bool {
+	switch normalizePaymentMethod(method) {
+	case strings.ToLower(constants.PaymentMethodVirtualAccount), strings.ToLower(constants.PaymentMethodBankTransfer):
+		return true
+	default:
+		return false
 	}
 }

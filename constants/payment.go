@@ -21,22 +21,20 @@ const (
 // Payment method aliases (for validation and mapping)
 var (
 	PaymentMethodAliases = map[string]string{
-		"cod":              PaymentMethodCOD,
-		"va":               PaymentMethodVirtualAccount,
-		"virtual_account":  PaymentMethodVirtualAccount,
-		"ewallet":          PaymentMethodEWallet,
-		"e_wallet":         PaymentMethodEWallet,
-		"gopay":            PaymentMethodEWallet,
-		"ovo":              PaymentMethodEWallet,
-		"dana":             PaymentMethodEWallet,
-		"linkaja":          PaymentMethodEWallet,
-		"bank_transfer":    PaymentMethodBankTransfer,
-		"bank_transfer_bca": PaymentMethodBankTransfer,
-		"bank_transfer_bni": PaymentMethodBankTransfer,
+		"cod":                   PaymentMethodCOD,
+		"va":                    PaymentMethodVirtualAccount,
+		"virtual_account":       PaymentMethodVirtualAccount,
+		"ewallet":               PaymentMethodEWallet,
+		"e_wallet":              PaymentMethodEWallet,
+		"gopay":                 PaymentMethodEWallet,
+		"ovo":                   PaymentMethodEWallet,
+		"dana":                  PaymentMethodEWallet,
+		"linkaja":               PaymentMethodEWallet,
+		"bank_transfer":         PaymentMethodBankTransfer,
+		"bank_transfer_bca":     PaymentMethodBankTransfer,
+		"bank_transfer_bni":     PaymentMethodBankTransfer,
 		"bank_transfer_mandiri": PaymentMethodBankTransfer,
-		"cc":               PaymentMethodCreditCard,
-		"credit_card":      PaymentMethodCreditCard,
+		"cc":                    PaymentMethodCreditCard,
+		"credit_card":           PaymentMethodCreditCard,
 	}
 )
-
-
