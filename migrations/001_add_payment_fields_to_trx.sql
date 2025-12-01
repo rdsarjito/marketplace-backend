@@ -41,3 +41,4 @@ MODIFY COLUMN midtrans_order_id VARCHAR(255) NULL COMMENT 'Order ID from Midtran
 ALTER TABLE trx 
 MODIFY COLUMN payment_expired_at TIMESTAMP NULL COMMENT 'Payment expiration timestamp';
 
+

@@ -147,23 +147,23 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		return nil, err
 	}
 
-	// Create detail transactions and update stock
+    // Create detail transactions and update stock
 	var itemDetails []map[string]interface{}
-	for _, detailReq := range req.DetailTRX {
-		// Update product stock
-		product, _ := s.productRepo.GetByID(detailReq.IDProduk)
-		product.Stok -= detailReq.Kuantitas
-		s.productRepo.Update(product)
+    for _, detailReq := range req.DetailTRX {
+        // Update product stock
+        product, _ := s.productRepo.GetByID(detailReq.IDProduk)
+        product.Stok -= detailReq.Kuantitas
+        s.productRepo.Update(product)
 
-		// Create detail record
-		detail := &model.DetailTRX{
-			IDTRX:      trx.ID,
-			IDProduk:   detailReq.IDProduk,
-			IDToko:     detailReq.IDToko,
-			Kuantitas:  detailReq.Kuantitas,
-			HargaTotal: detailReq.HargaTotal,
-		}
-		_ = s.trxRepo.CreateDetail(detail)
+        // Create detail record
+        detail := &model.DetailTRX{
+            IDTRX:      trx.ID,
+            IDProduk:   detailReq.IDProduk,
+            IDToko:     detailReq.IDToko,
+            Kuantitas:  detailReq.Kuantitas,
+            HargaTotal: detailReq.HargaTotal,
+        }
+        _ = s.trxRepo.CreateDetail(detail)
 
 		// Build item details for Midtrans
 		itemDetails = append(itemDetails, map[string]interface{}{
@@ -248,7 +248,7 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		if err := s.trxRepo.Update(trx); err != nil {
 			return nil, fmt.Errorf("failed to update transaction with payment info: %w", err)
 		}
-	}
+    }
 
 	// Get created transaction with relations
 	createdTRX, err := s.trxRepo.GetByID(trx.ID)
