@@ -1,6 +1,6 @@
-# Marketplace Backend
+# Warung Budeh Ramah Backend
 
-A comprehensive marketplace backend API built with Go and Fiber framework, implementing Clean Architecture principles.
+Backend API untuk aplikasi **Warung Budeh Ramah**, dibangun dengan Go dan Fiber framework, menerapkan prinsip Clean Architecture.
 
 ## Features
 

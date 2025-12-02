@@ -10,8 +10,8 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USERNAME=your_email@gmail.com
 SMTP_PASSWORD=your_app_password
-FROM_EMAIL=noreply@evermos.com
-FROM_NAME=Evermos
+FROM_EMAIL=noreply@warungbudehramah.com
+FROM_NAME=Warung Budeh Ramah
 ```
 
 ## Gmail Setup

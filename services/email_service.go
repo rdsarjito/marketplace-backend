@@ -28,8 +28,8 @@ func NewEmailService() EmailService {
 		smtpPort:     getEnvInt("SMTP_PORT", 587),
 		smtpUsername: getEnv("SMTP_USERNAME", ""),
 		smtpPassword: getEnv("SMTP_PASSWORD", ""),
-		fromEmail:    getEnv("FROM_EMAIL", "noreply@evermos.com"),
-		fromName:     getEnv("FROM_NAME", "Evermos"),
+		fromEmail:    getEnv("FROM_EMAIL", "noreply@warungbudehramah.com"),
+		fromName:     getEnv("FROM_NAME", "Warung Budeh Ramah"),
 	}
 }
 
@@ -38,7 +38,7 @@ func (s *emailService) SendPasswordResetEmail(email, token string) error {
 	if s.smtpUsername == "" || s.smtpPassword == "" {
 		fmt.Printf("=== EMAIL RESET PASSWORD ===\n")
 		fmt.Printf("To: %s\n", email)
-		fmt.Printf("Subject: Reset Password - Evermos\n")
+		fmt.Printf("Subject: Reset Password - Warung Budeh Ramah\n")
 		fmt.Printf("Token: %s\n", token)
 		fmt.Printf("Reset URL: http://localhost:5173/reset-password?token=%s\n", token)
 		fmt.Printf("=============================\n")
@@ -54,7 +54,7 @@ func (s *emailService) SendPasswordResetEmail(email, token string) error {
 	<html>
 	<head>
 		<meta charset="UTF-8">
-		<title>Reset Password - Evermos</title>
+		<title>Reset Password - Warung Budeh Ramah</title>
 		<style>
 			body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
 			.container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -67,12 +67,12 @@ func (s *emailService) SendPasswordResetEmail(email, token string) error {
 	<body>
 		<div class="container">
 			<div class="header">
-				<h1>Evermos</h1>
+				<h1>Warung Budeh Ramah</h1>
 			</div>
 			<div class="content">
 				<h2>Reset Password</h2>
 				<p>Halo,</p>
-				<p>Kami menerima permintaan untuk mereset password akun Evermos Anda.</p>
+				<p>Kami menerima permintaan untuk mereset password akun Warung Budeh Ramah Anda.</p>
 				<p>Klik tombol di bawah ini untuk mereset password Anda:</p>
 				<p style="text-align: center;">
 					<a href="%s" class="button">Reset Password</a>
@@ -90,7 +90,7 @@ func (s *emailService) SendPasswordResetEmail(email, token string) error {
 			</div>
 			<div class="footer">
 				<p>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</p>
-				<p>&copy; 2024 Evermos. All rights reserved.</p>
+				<p>&copy; 2024 Warung Budeh Ramah. All rights reserved.</p>
 			</div>
 		</div>
 	</body>
@@ -99,11 +99,11 @@ func (s *emailService) SendPasswordResetEmail(email, token string) error {
 
 	// Template email plain text
 	textBody := fmt.Sprintf(`
-Reset Password - Evermos
+Reset Password - Warung Budeh Ramah
 
 Halo,
 
-Kami menerima permintaan untuk mereset password akun Evermos Anda.
+Kami menerima permintaan untuk mereset password akun Warung Budeh Ramah Anda.
 
 Klik link berikut untuk mereset password Anda:
 %s
@@ -115,14 +115,14 @@ Catatan penting:
 
 Email ini dikirim secara otomatis, mohon tidak membalas email ini.
 
-© 2024 Evermos. All rights reserved.
+© 2024 Warung Budeh Ramah. All rights reserved.
 	`, resetURL)
 
 	// Buat email message
 	m := gomail.NewMessage()
 	m.SetHeader("From", fmt.Sprintf("%s <%s>", s.fromName, s.fromEmail))
 	m.SetHeader("To", email)
-	m.SetHeader("Subject", "Reset Password - Evermos")
+	m.SetHeader("Subject", "Reset Password - Warung Budeh Ramah")
 	m.SetBody("text/plain", textBody)
 	m.AddAlternative("text/html", htmlBody)
 
@@ -158,7 +158,7 @@ func (s *emailService) SendPaymentSuccessEmail(email, invoiceCode string, totalA
 	if s.smtpUsername == "" || s.smtpPassword == "" {
 		fmt.Printf("=== EMAIL PAYMENT SUCCESS ===\n")
 		fmt.Printf("To: %s\n", email)
-		fmt.Printf("Subject: Pembayaran Berhasil - Evermos\n")
+		fmt.Printf("Subject: Pembayaran Berhasil - Warung Budeh Ramah\n")
 		fmt.Printf("Invoice: %s\n", invoiceCode)
 		fmt.Printf("Total: Rp %d\n", totalAmount)
 		fmt.Printf("=============================\n")
@@ -174,7 +174,7 @@ func (s *emailService) SendPaymentSuccessEmail(email, invoiceCode string, totalA
 	<html>
 	<head>
 		<meta charset="UTF-8">
-		<title>Pembayaran Berhasil - Evermos</title>
+		<title>Pembayaran Berhasil - Warung Budeh Ramah</title>
 		<style>
 			body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
 			.container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -190,7 +190,7 @@ func (s *emailService) SendPaymentSuccessEmail(email, invoiceCode string, totalA
 	<body>
 		<div class="container">
 			<div class="header">
-				<h1>Evermos</h1>
+				<h1>Warung Budeh Ramah</h1>
 			</div>
 			<div class="content">
 				<div style="text-align: center;">
@@ -214,7 +214,7 @@ func (s *emailService) SendPaymentSuccessEmail(email, invoiceCode string, totalA
 			</div>
 			<div class="footer">
 				<p>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</p>
-				<p>&copy; 2024 Evermos. All rights reserved.</p>
+				<p>&copy; 2024 Warung Budeh Ramah. All rights reserved.</p>
 			</div>
 		</div>
 	</body>
@@ -223,7 +223,7 @@ func (s *emailService) SendPaymentSuccessEmail(email, invoiceCode string, totalA
 
 	// Template email plain text
 	textBody := fmt.Sprintf(`
-Pembayaran Berhasil - Evermos
+Pembayaran Berhasil - Warung Budeh Ramah
 
 Halo,
 
@@ -238,14 +238,14 @@ Jika Anda memiliki pertanyaan, silakan hubungi customer service kami.
 
 Email ini dikirim secara otomatis, mohon tidak membalas email ini.
 
-© 2024 Evermos. All rights reserved.
+© 2024 Warung Budeh Ramah. All rights reserved.
 	`, invoiceCode, totalAmountStr)
 
 	// Buat email message
 	m := gomail.NewMessage()
 	m.SetHeader("From", fmt.Sprintf("%s <%s>", s.fromName, s.fromEmail))
 	m.SetHeader("To", email)
-	m.SetHeader("Subject", "Pembayaran Berhasil - Evermos")
+	m.SetHeader("Subject", "Pembayaran Berhasil - Warung Budeh Ramah")
 	m.SetBody("text/plain", textBody)
 	m.AddAlternative("text/html", htmlBody)
 
@@ -264,7 +264,7 @@ func (s *emailService) SendPaymentExpiredEmail(email, invoiceCode string, totalA
 	if s.smtpUsername == "" || s.smtpPassword == "" {
 		fmt.Printf("=== EMAIL PAYMENT EXPIRED ===\n")
 		fmt.Printf("To: %s\n", email)
-		fmt.Printf("Subject: Pembayaran Kadaluarsa - Evermos\n")
+		fmt.Printf("Subject: Pembayaran Kadaluarsa - Warung Budeh Ramah\n")
 		fmt.Printf("Invoice: %s\n", invoiceCode)
 		fmt.Printf("Total: Rp %d\n", totalAmount)
 		fmt.Printf("=============================\n")
@@ -280,7 +280,7 @@ func (s *emailService) SendPaymentExpiredEmail(email, invoiceCode string, totalA
 	<html>
 	<head>
 		<meta charset="UTF-8">
-		<title>Pembayaran Kadaluarsa - Evermos</title>
+		<title>Pembayaran Kadaluarsa - Warung Budeh Ramah</title>
 		<style>
 			body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
 			.container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -296,7 +296,7 @@ func (s *emailService) SendPaymentExpiredEmail(email, invoiceCode string, totalA
 	<body>
 		<div class="container">
 			<div class="header">
-				<h1>Evermos</h1>
+				<h1>Warung Budeh Ramah</h1>
 			</div>
 			<div class="content">
 				<div style="text-align: center;">
@@ -321,7 +321,7 @@ func (s *emailService) SendPaymentExpiredEmail(email, invoiceCode string, totalA
 			</div>
 			<div class="footer">
 				<p>Email ini dikirim secara otomatis, mohon tidak membalas email ini.</p>
-				<p>&copy; 2024 Evermos. All rights reserved.</p>
+				<p>&copy; 2024 Warung Budeh Ramah. All rights reserved.</p>
 			</div>
 		</div>
 	</body>
@@ -330,7 +330,7 @@ func (s *emailService) SendPaymentExpiredEmail(email, invoiceCode string, totalA
 
 	// Template email plain text
 	textBody := fmt.Sprintf(`
-Pembayaran Kadaluarsa - Evermos
+Pembayaran Kadaluarsa - Warung Budeh Ramah
 
 Halo,
 
@@ -347,14 +347,14 @@ Jika Anda memiliki pertanyaan, silakan hubungi customer service kami.
 
 Email ini dikirim secara otomatis, mohon tidak membalas email ini.
 
-© 2024 Evermos. All rights reserved.
+© 2024 Warung Budeh Ramah. All rights reserved.
 	`, invoiceCode, totalAmountStr)
 
 	// Buat email message
 	m := gomail.NewMessage()
 	m.SetHeader("From", fmt.Sprintf("%s <%s>", s.fromName, s.fromEmail))
 	m.SetHeader("To", email)
-	m.SetHeader("Subject", "Pembayaran Kadaluarsa - Evermos")
+	m.SetHeader("Subject", "Pembayaran Kadaluarsa - Warung Budeh Ramah")
 	m.SetBody("text/plain", textBody)
 	m.AddAlternative("text/html", htmlBody)
 
