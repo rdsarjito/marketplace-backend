@@ -9,6 +9,8 @@ type TRXResponse struct {
 	PaymentURL       string              `json:"payment_url,omitempty"`
 	PaymentExpiredAt string              `json:"payment_expired_at,omitempty"`
 	PaymentVANumbers []PaymentVANumber   `json:"payment_va_numbers,omitempty"`
+	PaymentActions   []PaymentAction     `json:"payment_actions,omitempty"`
+	PaymentQRString  string              `json:"payment_qr_string,omitempty"`
 	CreatedAt        string              `json:"created_at"`
 	UpdatedAt        string              `json:"updated_at"`
 	IDUser           int                 `json:"id_user"`
@@ -21,6 +23,12 @@ type TRXResponse struct {
 type PaymentVANumber struct {
 	Bank     string `json:"bank"`
 	VANumber string `json:"va_number"`
+}
+
+type PaymentAction struct {
+	Name   string `json:"name"`
+	Method string `json:"method"`
+	URL    string `json:"url"`
 }
 
 type DetailTRXResponse struct {

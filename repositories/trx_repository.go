@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/rdsarjito/marketplace-backend/domain/model"
@@ -13,7 +14,7 @@ type TRXRepository interface {
 	GetByUserID(userID int) ([]model.TRX, error)
 	GetByInvoiceCode(invoiceCode string) (*model.TRX, error)
 	Update(trx *model.TRX) error
-	UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time, paymentVANumbersJSON string) error
+	UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time, paymentVANumbersJSON, paymentActionsJSON, paymentQRString string) error
 	Delete(id int) error
 	CreateDetail(detail *model.DetailTRX) error
 }
@@ -59,10 +60,12 @@ func (r *trxRepository) Update(trx *model.TRX) error {
 }
 
 // UpdatePaymentStatus updates only payment-related fields in transaction
-func (r *trxRepository) UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time, paymentVANumbersJSON string) error {
+func (r *trxRepository) UpdatePaymentStatus(trxID int, paymentStatus string, paymentToken, paymentURL, midtransOrderID string, paymentExpiredAt *time.Time, paymentVANumbersJSON, paymentActionsJSON, paymentQRString string) error {
 	updates := map[string]interface{}{
 		"payment_status": paymentStatus,
 	}
+
+	fmt.Println("paymentQRString", paymentQRString)
 
 	// Only update fields that are provided (non-empty)
 	if paymentToken != "" {
@@ -79,6 +82,12 @@ func (r *trxRepository) UpdatePaymentStatus(trxID int, paymentStatus string, pay
 	}
 	if paymentVANumbersJSON != "" {
 		updates["payment_va_numbers"] = paymentVANumbersJSON
+	}
+	if paymentActionsJSON != "" {
+		updates["payment_actions"] = paymentActionsJSON
+	}
+	if paymentQRString != "" {
+		updates["payment_qr_string"] = paymentQRString
 	}
 
 	return r.db.Model(&model.TRX{}).Where("id = ?", trxID).Updates(updates).Error

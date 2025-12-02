@@ -150,23 +150,23 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		return nil, err
 	}
 
-	// Create detail transactions and update stock
+    // Create detail transactions and update stock
 	var itemDetails []map[string]interface{}
-	for _, detailReq := range req.DetailTRX {
-		// Update product stock
-		product, _ := s.productRepo.GetByID(detailReq.IDProduk)
-		product.Stok -= detailReq.Kuantitas
-		s.productRepo.Update(product)
+    for _, detailReq := range req.DetailTRX {
+        // Update product stock
+        product, _ := s.productRepo.GetByID(detailReq.IDProduk)
+        product.Stok -= detailReq.Kuantitas
+        s.productRepo.Update(product)
 
-		// Create detail record
-		detail := &model.DetailTRX{
-			IDTRX:      trx.ID,
-			IDProduk:   detailReq.IDProduk,
-			IDToko:     detailReq.IDToko,
-			Kuantitas:  detailReq.Kuantitas,
-			HargaTotal: detailReq.HargaTotal,
-		}
-		_ = s.trxRepo.CreateDetail(detail)
+        // Create detail record
+        detail := &model.DetailTRX{
+            IDTRX:      trx.ID,
+            IDProduk:   detailReq.IDProduk,
+            IDToko:     detailReq.IDToko,
+            Kuantitas:  detailReq.Kuantitas,
+            HargaTotal: detailReq.HargaTotal,
+        }
+        _ = s.trxRepo.CreateDetail(detail)
 
 		// Build item details for Midtrans
 		itemDetails = append(itemDetails, map[string]interface{}{
@@ -179,6 +179,8 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 
 	var lastPaymentResp *CreatePaymentResponse
 	var lastPaymentVANumbers []response.PaymentVANumber
+	var lastPaymentActions []response.PaymentAction
+	var lastPaymentQRString string
 
 	// If payment method is not COD, create payment via Midtrans
 	if req.MethodBayar != "COD" {
@@ -222,7 +224,7 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		if err != nil {
 			// If payment creation fails, still return transaction but with error status
 			// Use UpdatePaymentStatus to avoid updating created_at
-			s.trxRepo.UpdatePaymentStatus(trx.ID, "failed", "", "", "", nil, "")
+			s.trxRepo.UpdatePaymentStatus(trx.ID, "failed", "", "", "", nil, "", "", "")
 			// Return more detailed error message
 			return nil, fmt.Errorf("failed to create payment with Midtrans: %w. Please check your Midtrans Server Key configuration", err)
 		}
@@ -275,6 +277,9 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 
 		vaNumbers := mapVANumbersFromMidtrans(paymentResp.VaNumbers)
 		vaNumbersJSON := serializeVANumbersToJSON(vaNumbers)
+		paymentActions := mapActionsFromMidtrans(paymentResp.Actions)
+		paymentActionsJSON := serializeActionsToJSON(paymentActions)
+		paymentQRString := strings.TrimSpace(paymentResp.QRString)
 
 		// Use UpdatePaymentStatus to only update payment fields (avoid updating created_at)
 		if err := s.trxRepo.UpdatePaymentStatus(
@@ -285,13 +290,17 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 			paymentResp.OrderID,
 			expiryTime,
 			vaNumbersJSON,
+			paymentActionsJSON,
+			paymentQRString,
 		); err != nil {
 			return nil, fmt.Errorf("failed to update transaction with payment info: %w", err)
 		}
 
 		lastPaymentResp = paymentResp
 		lastPaymentVANumbers = vaNumbers
-	}
+		lastPaymentActions = paymentActions
+		lastPaymentQRString = paymentQRString
+    }
 
 	// Get created transaction with relations
 	createdTRX, err := s.trxRepo.GetByID(trx.ID)
@@ -310,8 +319,22 @@ func (s *trxService) CreateTRX(userID int, req *request.CreateTRXRequest) (*resp
 		} else {
 			s.attachVANumbersIfNeeded(createdTRX, &trxResponse)
 		}
+
+		actions := lastPaymentActions
+		if len(actions) == 0 {
+			actions = mapActionsFromMidtrans(lastPaymentResp.Actions)
+		}
+		if len(actions) > 0 {
+			trxResponse.PaymentActions = actions
+		}
+		if lastPaymentQRString != "" {
+			trxResponse.PaymentQRString = lastPaymentQRString
+		} else {
+			trxResponse.PaymentQRString = strings.TrimSpace(lastPaymentResp.QRString)
+		}
 	} else {
 		s.attachVANumbersIfNeeded(createdTRX, &trxResponse)
+		s.attachActionsIfNeeded(createdTRX, &trxResponse)
 	}
 	return &trxResponse, nil
 }
@@ -374,13 +397,16 @@ func (s *trxService) HandlePaymentWebhook(notification map[string]interface{}) e
 	paymentStatusStr := s.mapMidtransStatusToPaymentStatus(paymentStatus.TransactionStatus)
 	vaNumbers := mapVANumbersFromMidtrans(paymentStatus.VaNumbers)
 	vaNumbersJSON := serializeVANumbersToJSON(vaNumbers)
+	actions := mapActionsFromMidtrans(paymentStatus.Actions)
+	actionsJSON := serializeActionsToJSON(actions)
+	qrString := strings.TrimSpace(paymentStatus.QRString)
 
 	// Update transaction payment status (use UpdatePaymentStatus to avoid updating created_at)
-	if err := s.trxRepo.UpdatePaymentStatus(trx.ID, paymentStatusStr, "", "", "", nil, vaNumbersJSON); err != nil {
+	if err := s.trxRepo.UpdatePaymentStatus(trx.ID, paymentStatusStr, "", "", "", nil, vaNumbersJSON, actionsJSON, qrString); err != nil {
 		return fmt.Errorf("failed to update transaction: %w", err)
 	}
 
-	// Send email notification if status changed to paid or expired
+	// If status changed, send email and publish SSE event
 	if oldStatus != paymentStatusStr {
 		// Get user email from transaction
 		user, err := s.userRepo.GetByID(trx.IDUser)
@@ -394,6 +420,16 @@ func (s *trxService) HandlePaymentWebhook(notification map[string]interface{}) e
 				}
 			}()
 		}
+
+		// Publish SSE event with updated status
+		// Always publish, even if no clients are connected (they will get update on next connection)
+		payload := fmt.Sprintf(`{"trx_id": %d, "status": "%s"}`, trx.ID, paymentStatusStr)
+		PaymentStatusHub.Publish(trx.ID, payload)
+	} else {
+		// Even if status didn't change, publish event to ensure connected clients get latest data
+		// This helps with cases where webhook updates other fields (VA numbers, QR, etc.)
+		payload := fmt.Sprintf(`{"trx_id": %d, "status": "%s"}`, trx.ID, paymentStatusStr)
+		PaymentStatusHub.Publish(trx.ID, payload)
 	}
 
 	return nil
@@ -402,7 +438,8 @@ func (s *trxService) HandlePaymentWebhook(notification map[string]interface{}) e
 // mapMidtransStatusToPaymentStatus maps Midtrans transaction status to our payment status
 func (s *trxService) mapMidtransStatusToPaymentStatus(midtransStatus string) string {
 	switch midtransStatus {
-	case "settlement":
+	case "settlement", "complete":
+		// "settlement" is the standard status, "complete" might be used in some cases
 		return "paid"
 	case "pending":
 		return "pending_payment"
@@ -446,13 +483,34 @@ func (s *trxService) CheckPaymentStatus(userID, trxID int) (*response.TRXRespons
 	}
 
 	// Map Midtrans status to our payment status
+	oldStatus := trx.PaymentStatus
 	paymentStatusStr := s.mapMidtransStatusToPaymentStatus(paymentStatus.TransactionStatus)
 	vaNumbers := mapVANumbersFromMidtrans(paymentStatus.VaNumbers)
 	vaNumbersJSON := serializeVANumbersToJSON(vaNumbers)
+	actions := mapActionsFromMidtrans(paymentStatus.Actions)
+	actionsJSON := serializeActionsToJSON(actions)
+	qrString := strings.TrimSpace(paymentStatus.QRString)
 
 	// Update transaction payment status (use UpdatePaymentStatus to avoid updating created_at)
-	if err := s.trxRepo.UpdatePaymentStatus(trxID, paymentStatusStr, "", "", "", nil, vaNumbersJSON); err != nil {
+	if err := s.trxRepo.UpdatePaymentStatus(trxID, paymentStatusStr, "", "", "", nil, vaNumbersJSON, actionsJSON, qrString); err != nil {
 		return nil, fmt.Errorf("failed to update transaction: %w", err)
+	}
+
+	// If status changed, send email and publish SSE event
+	if oldStatus != paymentStatusStr {
+		user, err := s.userRepo.GetByID(trx.IDUser)
+		if err == nil {
+			go func() {
+				if paymentStatusStr == "paid" {
+					_ = s.emailService.SendPaymentSuccessEmail(user.Email, trx.KodeInvoice, trx.HargaTotal)
+				} else if paymentStatusStr == "expired" {
+					_ = s.emailService.SendPaymentExpiredEmail(user.Email, trx.KodeInvoice, trx.HargaTotal)
+				}
+			}()
+		}
+
+		payload := fmt.Sprintf(`{"trx_id": %d, "status": "%s"}`, trxID, paymentStatusStr)
+		PaymentStatusHub.Publish(trxID, payload)
 	}
 
 	// Get updated transaction with relations
@@ -473,6 +531,8 @@ func (s *trxService) CheckPaymentStatus(userID, trxID int) (*response.TRXRespons
 
 func (s *trxService) mapTRXToResponse(trx model.TRX) response.TRXResponse {
 	paymentVANumbers := deserializeVANumbersFromString(trx.PaymentVANumbers)
+	paymentActions := deserializeActionsFromString(trx.PaymentActions)
+	paymentQRString := strings.TrimSpace(trx.PaymentQRString)
 	// Map user
 	userResponse := response.UserProfile{
 		ID:           trx.User.ID,
@@ -556,6 +616,8 @@ func (s *trxService) mapTRXToResponse(trx model.TRX) response.TRXResponse {
 		PaymentURL:       trx.PaymentURL,
 		PaymentExpiredAt: paymentExpiredAtStr,
 		PaymentVANumbers: paymentVANumbers,
+		PaymentActions:   paymentActions,
+		PaymentQRString:  paymentQRString,
 		CreatedAt:        trx.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:        trx.UpdatedAt.Format("2006-01-02 15:04:05"),
 		IDUser:           trx.IDUser,
@@ -581,7 +643,7 @@ func (s *trxService) attachVANumbersIfNeeded(trx *model.TRX, trxResponse *respon
 		return
 	}
 	trxResponse.PaymentVANumbers = vaNumbers
-	_ = s.trxRepo.UpdatePaymentStatus(trx.ID, trx.PaymentStatus, "", "", "", nil, serializeVANumbersToJSON(vaNumbers))
+	_ = s.trxRepo.UpdatePaymentStatus(trx.ID, trx.PaymentStatus, "", "", "", nil, serializeVANumbersToJSON(vaNumbers), "", "")
 }
 
 func (s *trxService) fetchVANumbersFromMidtrans(orderID string) ([]response.PaymentVANumber, error) {
@@ -647,5 +709,81 @@ func isVirtualAccountMethod(method string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func isEWalletMethod(method string) bool {
+	switch normalizePaymentMethod(method) {
+	case "gopay", "ovo", "dana", "linkaja", strings.ToLower(constants.PaymentMethodEWallet):
+		return true
+	default:
+		return false
+	}
+}
+
+func mapActionsFromMidtrans(actions []map[string]interface{}) []response.PaymentAction {
+	var result []response.PaymentAction
+	for _, action := range actions {
+		url, _ := action["url"].(string)
+		if strings.TrimSpace(url) == "" {
+			continue
+		}
+		name, _ := action["name"].(string)
+		method, _ := action["method"].(string)
+		result = append(result, response.PaymentAction{
+			Name:   name,
+			Method: method,
+			URL:    url,
+		})
+	}
+	return result
+}
+
+func serializeActionsToJSON(actions []response.PaymentAction) string {
+	if len(actions) == 0 {
+		return ""
+	}
+	bytes, err := json.Marshal(actions)
+	if err != nil {
+		return ""
+	}
+	return string(bytes)
+}
+
+func deserializeActionsFromString(data string) []response.PaymentAction {
+	if strings.TrimSpace(data) == "" {
+		return nil
+	}
+	var actions []response.PaymentAction
+	if err := json.Unmarshal([]byte(data), &actions); err != nil {
+		return nil
+	}
+	return actions
+}
+
+func (s *trxService) attachActionsIfNeeded(trx *model.TRX, trxResponse *response.TRXResponse) {
+	if trx == nil || trxResponse == nil {
+		return
+	}
+	if len(trxResponse.PaymentActions) > 0 && strings.TrimSpace(trxResponse.PaymentQRString) != "" {
+		return
+	}
+	if !isEWalletMethod(trx.MethodBayar) || trx.KodeInvoice == "" {
+		return
+	}
+	status, err := s.midtransService.VerifyPayment(trx.KodeInvoice)
+	if err != nil {
+		return
+	}
+	actions := mapActionsFromMidtrans(status.Actions)
+	if len(actions) > 0 {
+		trxResponse.PaymentActions = actions
+	}
+	qrString := strings.TrimSpace(status.QRString)
+	if qrString != "" {
+		trxResponse.PaymentQRString = qrString
+	}
+	if len(actions) > 0 || qrString != "" {
+		_ = s.trxRepo.UpdatePaymentStatus(trx.ID, trx.PaymentStatus, "", "", "", nil, "", serializeActionsToJSON(actions), qrString)
 	}
 }

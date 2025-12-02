@@ -17,6 +17,8 @@ type TRX struct {
 	MidtransOrderID  string         `gorm:"type:varchar(255);null;index:idx_midtrans_order_id"`
 	PaymentExpiredAt *time.Time     `gorm:"type:timestamp;null"`
 	PaymentVANumbers string         `gorm:"type:text;null"`
+	PaymentActions   string         `gorm:"type:text;null"`
+	PaymentQRString  string         `gorm:"type:text;null"`
 	CreatedAt        time.Time      `gorm:"type:timestamp;not null;default:current_timestamp"`
 	UpdatedAt        time.Time      `gorm:"type:timestamp"`
 	DeletedAt        gorm.DeletedAt `gorm:"index"`

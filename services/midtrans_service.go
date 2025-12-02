@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -57,6 +58,7 @@ type CreatePaymentResponse struct {
 	VaNumbers         []map[string]interface{} `json:"va_numbers,omitempty"`
 	Actions           []map[string]interface{} `json:"actions,omitempty"`
 	ExpiryTime        string                   `json:"expiry_time,omitempty"`
+	QRString          string                   `json:"qr_string,omitempty"`
 }
 
 // PaymentStatusResponse response untuk status payment
@@ -74,6 +76,7 @@ type PaymentStatusResponse struct {
 	VaNumbers         []map[string]interface{} `json:"va_numbers,omitempty"`
 	Actions           []map[string]interface{} `json:"actions,omitempty"`
 	FraudStatus       string                   `json:"fraud_status,omitempty"`
+	QRString          string                   `json:"qr_string,omitempty"`
 }
 
 // NewMidtransService membuat instance baru dari MidtransService
@@ -193,6 +196,14 @@ func (s *midtransService) CreatePayment(req *CreatePaymentRequest) (*CreatePayme
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	log.Printf("[Midtrans] CreatePayment Response for OrderID %s:", req.OrderID)
+	log.Printf("[Midtrans] Full Response Body: %s", string(body))
+	log.Printf("[Midtrans] Payment Type: %s", response.PaymentType)
+	log.Printf("[Midtrans] QR String: %s", response.QRString)
+	log.Printf("[Midtrans] Actions: %+v", response.Actions)
+	log.Printf("[Midtrans] Status Code: %s", response.StatusCode)
+	log.Printf("[Midtrans] Status Message: %s", response.StatusMessage)
+
 	// Check for errors
 	if response.StatusCode != "201" && response.StatusCode != "200" {
 		// Return more detailed error message including response body for debugging
@@ -267,7 +278,9 @@ func (s *midtransService) VerifyPayment(orderID string) (*PaymentStatusResponse,
 	}
 
 	// Check for errors
-	if response.StatusCode != "200" {
+	// In sandbox, Midtrans sometimes returns 201 with message "Success, transaction is found"
+	// Treat both 200 and 201 as successful status responses.
+	if response.StatusCode != "200" && response.StatusCode != "201" {
 		return nil, fmt.Errorf("midtrans API error: %s - %s", response.StatusCode, response.StatusMessage)
 	}
 

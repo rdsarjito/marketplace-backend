@@ -76,7 +76,7 @@ func main() {
 	shopHandler := handlers.NewShopHandler(shopService)
 	productHandler := handlers.NewProductHandler(productService, mediaStorage)
 	trxHandler := handlers.NewTRXHandler(trxService)
-	paymentHandler := handlers.NewPaymentHandler(trxService)
+	paymentHandler := handlers.NewPaymentHandler(trxService, userService)
 
 	// Initialize middleware
 	authMiddleware := middleware.AuthMiddleware(userService)
@@ -100,6 +100,9 @@ func main() {
 
 	// Payment webhook (public - Midtrans will POST to this endpoint)
 	api.Post("/payment/webhook", paymentHandler.HandleWebhook)
+
+	// Payment status stream via SSE (public, but requires token query parameter)
+	api.Get("/payment/stream/:id", paymentHandler.StreamPaymentStatus)
 
 	// Protected routes
 	api.Use(authMiddleware)

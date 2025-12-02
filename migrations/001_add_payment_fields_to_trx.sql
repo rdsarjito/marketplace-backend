@@ -42,3 +42,4 @@ ALTER TABLE trx
 MODIFY COLUMN payment_expired_at TIMESTAMP NULL COMMENT 'Payment expiration timestamp';
 
 
+

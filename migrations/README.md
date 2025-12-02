@@ -51,3 +51,4 @@ ALTER TABLE trx DROP COLUMN payment_status;
 - The migration is idempotent - running it multiple times won't cause errors (except for index creation)
 
 
+

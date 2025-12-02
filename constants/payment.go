@@ -38,3 +38,4 @@ var (
 		"credit_card":           PaymentMethodCreditCard,
 	}
 )
+
