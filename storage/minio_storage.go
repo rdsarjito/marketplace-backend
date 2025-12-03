@@ -16,6 +16,8 @@ import (
 // MediaStorage defines the capability required by handlers/services to store media assets.
 type MediaStorage interface {
 	Upload(ctx context.Context, objectName string, reader io.Reader, size int64, contentType string) (string, error)
+	GetObject(ctx context.Context, objectName string) (io.Reader, error)
+	GetClient() interface{} // Returns the underlying client for direct access
 }
 
 type minioStorage struct {
@@ -85,7 +87,44 @@ func (s *minioStorage) Upload(ctx context.Context, objectName string, reader io.
 		return "", err
 	}
 
-	return fmt.Sprintf("%s/%s", s.baseURL, strings.TrimLeft(objectName, "/")), nil
+	// If ASSET_BASE_URL contains /api/ or /media/, use it directly (backend API endpoint)
+	if s.baseURL != "" && (strings.Contains(s.baseURL, "/api/") || strings.Contains(s.baseURL, "/media")) {
+		return fmt.Sprintf("%s/%s", s.baseURL, strings.TrimLeft(objectName, "/")), nil
+	}
+	
+	// Otherwise, use /media/ endpoint (backend will proxy to MinIO)
+	// Get API base URL from environment or use default
+	apiBaseURL := os.Getenv("API_BASE_URL")
+	if apiBaseURL == "" {
+		apiBaseURL = "https://api.warungbudehramah.app"
+	}
+	return fmt.Sprintf("%s/media/%s", strings.TrimRight(apiBaseURL, "/"), strings.TrimLeft(objectName, "/")), nil
+}
+
+func (s *minioStorage) GetObject(ctx context.Context, objectName string) (io.Reader, error) {
+	obj, err := s.client.GetObject(ctx, s.bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (s *minioStorage) GetClient() interface{} {
+	return s.client
+}
+
+// GetObjectInfo gets object information from MinIO
+func (s *minioStorage) GetObjectInfo(ctx context.Context, objectName string) (*minio.ObjectInfo, error) {
+	objInfo, err := s.client.StatObject(ctx, s.bucket, objectName, minio.StatObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return &objInfo, nil
+}
+
+// GetBucket returns the bucket name
+func (s *minioStorage) GetBucket() string {
+	return s.bucket
 }
 
 type endpointInfo struct {

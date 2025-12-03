@@ -137,6 +137,9 @@ func main() {
 	api.Delete("/product/:id", productHandler.DeleteProduct)
 	api.Post("/product/:id/photo", productHandler.UploadProductPhoto)
 
+	// Media serving route (public, no auth required)
+	app.Get("/media/*", productHandler.ServeMedia)
+
 	// Transaction routes
 	api.Get("/trx", trxHandler.GetListTRX)
 	api.Get("/trx/:id", trxHandler.GetDetailTRX)

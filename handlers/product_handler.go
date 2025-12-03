@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -143,6 +144,31 @@ func (h *ProductHandler) UploadProductPhoto(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response.SuccessResponse("Photo uploaded", prod))
+}
+
+// ServeMedia serves media files from MinIO storage
+// This is a public endpoint to serve product images
+func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
+	// Get object name from path parameter (using * to match all paths)
+	objectName := c.Params("*")
+	if objectName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Object name required", nil))
+	}
+
+	// Get object from storage
+	obj, err := h.storage.GetObject(c.UserContext(), objectName)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(response.ErrorResponse("File not found", nil))
+	}
+	defer obj.(io.Closer).Close()
+
+	// Try to get object info if storage supports it
+	// For now, set default content type
+	c.Set("Content-Type", "image/jpeg")
+	c.Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
+
+	// Stream the file
+	return c.SendStream(obj)
 }
 
 func sanitizeFilename(name string) string {
