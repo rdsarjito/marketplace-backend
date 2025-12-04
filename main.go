@@ -83,8 +83,11 @@ func main() {
 
 	// Media serving route (public, no auth required) - must be before API routes
 	// This route serves product images from MinIO storage
-	// Use :path* for catch-all parameter in Fiber v2
-	app.Get("/media/:path*", productHandler.ServeMedia)
+	// Use route group and catch-all pattern
+	mediaGroup := app.Group("/media")
+	mediaGroup.Get("/*", productHandler.ServeMedia)
+	mediaGroup.Head("/*", productHandler.ServeMedia) // Support HEAD requests for image checks
+	log.Println("Media route registered: /media/*")
 
 	// API routes
 	api := app.Group("/api/v1")
