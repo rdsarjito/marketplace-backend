@@ -81,6 +81,10 @@ func main() {
 	// Initialize middleware
 	authMiddleware := middleware.AuthMiddleware(userService)
 
+	// Media serving route (public, no auth required) - must be before API routes
+	// This route serves product images from MinIO storage
+	app.Get("/media/*", productHandler.ServeMedia)
+
 	// API routes
 	api := app.Group("/api/v1")
 
@@ -136,9 +140,6 @@ func main() {
 	api.Put("/product/:id", productHandler.UpdateProduct)
 	api.Delete("/product/:id", productHandler.DeleteProduct)
 	api.Post("/product/:id/photo", productHandler.UploadProductPhoto)
-
-	// Media serving route (public, no auth required)
-	app.Get("/media/*", productHandler.ServeMedia)
 
 	// Transaction routes
 	api.Get("/trx", trxHandler.GetListTRX)
