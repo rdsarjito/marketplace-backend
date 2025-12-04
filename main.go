@@ -83,10 +83,8 @@ func main() {
 
 	// Media serving route (public, no auth required) - must be before API routes
 	// This route serves product images from MinIO storage
-	// Use route group and catch-all pattern
-	mediaGroup := app.Group("/media")
-	mediaGroup.Get("/*", productHandler.ServeMedia)
-	mediaGroup.Head("/*", productHandler.ServeMedia) // Support HEAD requests for image checks
+	// Register directly without group to ensure proper routing
+	app.All("/media/*", productHandler.ServeMedia)
 	log.Println("Media route registered: /media/*")
 
 	// API routes
@@ -156,6 +154,14 @@ func main() {
 		return c.JSON(fiber.Map{
 			"status":  true,
 			"message": "Server is running",
+		})
+	})
+
+	// Test route to verify routing works
+	app.Get("/test-media", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"status":  true,
+			"message": "Media route test - routing works",
 		})
 	})
 
