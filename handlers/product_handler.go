@@ -151,14 +151,20 @@ func (h *ProductHandler) UploadProductPhoto(c *fiber.Ctx) error {
 // ServeMedia serves media files from MinIO storage
 // This is a public endpoint to serve product images
 func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
+	log.Printf("[ServeMedia] Handler called - Method: %s, Path: %s, OriginalURL: %s", c.Method(), c.Path(), c.OriginalURL())
+	
 	// Get object name from path parameter
 	// When using route group with catch-all, the path after /media is in c.Params("*")
 	objectName := c.Params("*")
+	log.Printf("[ServeMedia] Params(*): %s", objectName)
+	
 	if objectName == "" {
 		// Fallback: try to get from path
 		path := c.Path()
 		objectName = strings.TrimPrefix(path, "/media/")
+		log.Printf("[ServeMedia] Fallback from path: %s -> %s", path, objectName)
 		if objectName == "" {
+			log.Printf("[ServeMedia] ERROR: Object name is empty")
 			return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Object name required", nil))
 		}
 	}
