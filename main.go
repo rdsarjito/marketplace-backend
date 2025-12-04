@@ -42,10 +42,6 @@ func main() {
 	app.Use(cors.New())
 	app.Use(logger.New())
 
-	// IMPORTANT: Media route must be registered early, before handlers are initialized
-	// We'll register a placeholder first, then replace it later
-	fmt.Println("=== Setting up media route placeholder ===")
-
 	// API external for data province & city
 	provinceCityApiURL := os.Getenv("API_LOCATION")
 
@@ -95,7 +91,7 @@ func main() {
 	})
 	fmt.Println("=== Media middleware registered: /media ===")
 	log.Println("=== Media middleware registered: /media ===")
-	
+
 	// Also register explicit routes as backup
 	app.Get("/media/*", productHandler.ServeMedia)
 	app.Head("/media/*", productHandler.ServeMedia)
