@@ -153,18 +153,21 @@ func (h *ProductHandler) UploadProductPhoto(c *fiber.Ctx) error {
 func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 	log.Printf("[ServeMedia] Handler called - Method: %s, Path: %s, OriginalURL: %s", c.Method(), c.Path(), c.OriginalURL())
 	
-	// Get object name from path parameter
-	// When using route group with catch-all, the path after /media is in c.Params("*")
+	// Get object name from path
+	// When using middleware with path prefix /media, the full path is in c.Path()
+	// When using route with catch-all /*, the path after /media is in c.Params("*")
 	objectName := c.Params("*")
-	log.Printf("[ServeMedia] Params(*): %s", objectName)
+	log.Printf("[ServeMedia] Params(*): '%s'", objectName)
 	
 	if objectName == "" {
-		// Fallback: try to get from path
+		// Fallback: try to get from path (for middleware approach)
 		path := c.Path()
-		objectName = strings.TrimPrefix(path, "/media/")
-		log.Printf("[ServeMedia] Fallback from path: %s -> %s", path, objectName)
+		// Remove /media prefix to get the object name
+		objectName = strings.TrimPrefix(path, "/media")
+		objectName = strings.TrimPrefix(objectName, "/")
+		log.Printf("[ServeMedia] Fallback from path: '%s' -> '%s'", path, objectName)
 		if objectName == "" {
-			log.Printf("[ServeMedia] ERROR: Object name is empty")
+			log.Printf("[ServeMedia] ERROR: Object name is empty - Path: %s, OriginalURL: %s", c.Path(), c.OriginalURL())
 			return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Object name required", nil))
 		}
 	}
