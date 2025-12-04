@@ -81,11 +81,12 @@ func main() {
 	// Initialize middleware
 	authMiddleware := middleware.AuthMiddleware(userService)
 
-	// Media serving middleware - handle all requests to /media
+	// Media serving route - handle all requests to /media
 	// This route serves product images from MinIO storage
-	// Use middleware with path prefix to catch all /media/* requests
-	app.Use("/media", productHandler.ServeMedia)
-	log.Printf("Media middleware registered: /media/*")
+	// Register route group for /media with catch-all
+	mediaGroup := app.Group("/media")
+	mediaGroup.All("*", productHandler.ServeMedia)
+	log.Printf("Media route registered: /media/* (All methods)")
 
 	// API routes
 	api := app.Group("/api/v1")

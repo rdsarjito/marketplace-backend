@@ -151,13 +151,16 @@ func (h *ProductHandler) UploadProductPhoto(c *fiber.Ctx) error {
 // ServeMedia serves media files from MinIO storage
 // This is a public endpoint to serve product images
 func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
-	// Get object name from path
-	// When using middleware with path prefix /media, the remaining path is in c.Path()
-	// Remove /media prefix to get the object name
-	path := c.Path()
-	objectName := strings.TrimPrefix(path, "/media/")
+	// Get object name from path parameter
+	// When using route group with catch-all, the path after /media is in c.Params("*")
+	objectName := c.Params("*")
 	if objectName == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Object name required", nil))
+		// Fallback: try to get from path
+		path := c.Path()
+		objectName = strings.TrimPrefix(path, "/media/")
+		if objectName == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Object name required", nil))
+		}
 	}
 
 	log.Printf("[ServeMedia] Requesting object: %s", objectName)
