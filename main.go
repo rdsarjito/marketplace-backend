@@ -35,12 +35,12 @@ func main() {
 		},
 	})
 
+	// Static files
+	app.Static("/uploads", "./uploads")
+
 	// Middleware
 	app.Use(cors.New())
 	app.Use(logger.New())
-
-	// Static files
-	app.Static("/uploads", "./uploads")
 
 	// API external for data province & city
 	provinceCityApiURL := os.Getenv("API_LOCATION")
@@ -83,9 +83,9 @@ func main() {
 
 	// Media serving route (public, no auth required) - must be before API routes
 	// This route serves product images from MinIO storage
-	// Register directly without group to ensure proper routing
+	// Try using direct route with catch-all pattern
 	app.All("/media/*", productHandler.ServeMedia)
-	log.Println("Media route registered: /media/*")
+	log.Println("Media route registered: /media/* (catch-all)")
 
 	// API routes
 	api := app.Group("/api/v1")
@@ -154,14 +154,6 @@ func main() {
 		return c.JSON(fiber.Map{
 			"status":  true,
 			"message": "Server is running",
-		})
-	})
-
-	// Test route to verify routing works
-	app.Get("/test-media", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":  true,
-			"message": "Media route test - routing works",
 		})
 	})
 
