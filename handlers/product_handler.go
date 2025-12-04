@@ -153,13 +153,13 @@ func (h *ProductHandler) UploadProductPhoto(c *fiber.Ctx) error {
 // This is a public endpoint to serve product images
 func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 	log.Printf("[ServeMedia] Handler called - Method: %s, Path: %s, OriginalURL: %s", c.Method(), c.Path(), c.OriginalURL())
-	
+
 	// Get object name from path
 	// When using middleware with path prefix /media, the full path is in c.Path()
 	// When using route with catch-all /*, the path after /media is in c.Params("*")
 	objectName := c.Params("*")
 	log.Printf("[ServeMedia] Params(*): '%s'", objectName)
-	
+
 	if objectName == "" {
 		// Fallback: try to get from path (for middleware approach)
 		path := c.Path()
@@ -197,8 +197,8 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 
 	c.Set("Content-Type", contentType)
 	c.Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
-	c.Set("X-Accel-Buffering", "no") // Disable nginx buffering for streaming
-	
+	c.Set("X-Accel-Buffering", "no")                   // Disable nginx buffering for streaming
+
 	// Set Content-Length if available
 	if contentLength > 0 {
 		c.Set("Content-Length", fmt.Sprintf("%d", contentLength))
@@ -221,20 +221,20 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 				closer.Close()
 			}
 		}()
-		
+
 		// Copy data from MinIO object to response writer
 		written, err := io.Copy(w, obj)
 		if err != nil {
 			log.Printf("[ServeMedia] Error copying stream: %v (objectName: %s, written: %d)", err, objectName, written)
 			return
 		}
-		
+
 		// Flush any remaining data
 		if err := w.Flush(); err != nil {
 			log.Printf("[ServeMedia] Error flushing stream: %v (objectName: %s)", err, objectName)
 			return
 		}
-		
+
 		log.Printf("[ServeMedia] Successfully streamed object: %s (bytes: %d)", objectName, written)
 	})
 
