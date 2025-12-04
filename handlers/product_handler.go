@@ -154,7 +154,7 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 	log.Printf("[ServeMedia] Handler called - Method: %s, Path: %s, OriginalURL: %s", c.Method(), c.Path(), c.OriginalURL())
 	
 	// Get object name from path parameter
-	// When using route group with catch-all, the path after /media is in c.Params("*")
+	// When using route with catch-all pattern /*, the path after /media is in c.Params("*")
 	objectName := c.Params("*")
 	log.Printf("[ServeMedia] Params(*): %s", objectName)
 	

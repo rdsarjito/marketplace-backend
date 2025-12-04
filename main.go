@@ -83,10 +83,10 @@ func main() {
 
 	// Media serving route - handle all requests to /media
 	// This route serves product images from MinIO storage
-	// Register route group for /media with catch-all
-	mediaGroup := app.Group("/media")
-	mediaGroup.All("*", productHandler.ServeMedia)
-	log.Printf("Media route registered: /media/* (All methods)")
+	// Use direct route with catch-all pattern
+	app.Get("/media/*", productHandler.ServeMedia)
+	app.Head("/media/*", productHandler.ServeMedia)
+	log.Printf("Media route registered: /media/* (GET, HEAD)")
 
 	// API routes
 	api := app.Group("/api/v1")
