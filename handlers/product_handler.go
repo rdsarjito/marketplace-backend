@@ -188,25 +188,41 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 		log.Printf("[ServeMedia] Error getting object: %v (objectName: %s)", err, objectName)
 		return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse("Error retrieving file", nil))
 	}
-	defer obj.(io.Closer).Close()
+	defer func() {
+		if closer, ok := obj.(io.Closer); ok {
+			closer.Close()
+		}
+	}()
 
-	// Extract content type from object info if available
+	// Extract content type and size from object info
 	contentType := "application/octet-stream"
+	var contentLength int64 = -1
 	if objInfo != nil {
 		if minioInfo, ok := objInfo.(*minio.ObjectInfo); ok {
 			if minioInfo.ContentType != "" {
 				contentType = minioInfo.ContentType
 			}
+			contentLength = minioInfo.Size
 		}
 	}
 
 	c.Set("Content-Type", contentType)
 	c.Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
+	
+	// Set Content-Length if available
+	if contentLength > 0 {
+		c.Set("Content-Length", fmt.Sprintf("%d", contentLength))
+	}
 
-	log.Printf("[ServeMedia] Serving object: %s (Content-Type: %s)", objectName, contentType)
+	log.Printf("[ServeMedia] Serving object: %s (Content-Type: %s, Size: %d)", objectName, contentType, contentLength)
 
 	// Stream the file
-	return c.SendStream(obj)
+	// Use SendStream with proper error handling
+	if err := c.SendStream(obj); err != nil {
+		log.Printf("[ServeMedia] Error streaming object: %v (objectName: %s)", err, objectName)
+		return err
+	}
+	return nil
 }
 
 func sanitizeFilename(name string) string {
