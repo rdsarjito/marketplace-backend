@@ -83,9 +83,11 @@ func main() {
 
 	// Media serving route (public, no auth required) - must be before API routes
 	// This route serves product images from MinIO storage
-	// Try using direct route with catch-all pattern
-	app.All("/media/*", productHandler.ServeMedia)
-	log.Println("Media route registered: /media/* (catch-all)")
+	// Register explicit routes for all HTTP methods
+	app.Get("/media/*", productHandler.ServeMedia)
+	app.Head("/media/*", productHandler.ServeMedia)
+	app.Options("/media/*", productHandler.ServeMedia)
+	log.Printf("Media route registered: /media/* (GET, HEAD, OPTIONS)")
 
 	// API routes
 	api := app.Group("/api/v1")
