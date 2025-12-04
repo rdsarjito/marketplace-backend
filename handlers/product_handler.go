@@ -3,12 +3,14 @@ package handlers
 import (
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"github.com/minio/minio-go/v7"
 	"github.com/rdsarjito/marketplace-backend/constants"
 	"github.com/rdsarjito/marketplace-backend/domain/dto/request"
 	"github.com/rdsarjito/marketplace-backend/domain/dto/response"
@@ -155,17 +157,38 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Object name required", nil))
 	}
 
+	log.Printf("[ServeMedia] Requesting object: %s", objectName)
+
+	// Try to get object info first to check if file exists and get content type
+	objInfo, err := h.storage.GetObjectInfo(c.UserContext(), objectName)
+	if err != nil {
+		log.Printf("[ServeMedia] Object not found or error: %v (objectName: %s)", err, objectName)
+		return c.Status(fiber.StatusNotFound).JSON(response.ErrorResponse(
+			fmt.Sprintf("File not found: %s", objectName), nil))
+	}
+
 	// Get object from storage
 	obj, err := h.storage.GetObject(c.UserContext(), objectName)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(response.ErrorResponse("File not found", nil))
+		log.Printf("[ServeMedia] Error getting object: %v (objectName: %s)", err, objectName)
+		return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse("Error retrieving file", nil))
 	}
 	defer obj.(io.Closer).Close()
 
-	// Try to get object info if storage supports it
-	// For now, set default content type
-	c.Set("Content-Type", "image/jpeg")
+	// Extract content type from object info if available
+	contentType := "application/octet-stream"
+	if objInfo != nil {
+		if minioInfo, ok := objInfo.(*minio.ObjectInfo); ok {
+			if minioInfo.ContentType != "" {
+				contentType = minioInfo.ContentType
+			}
+		}
+	}
+
+	c.Set("Content-Type", contentType)
 	c.Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
+
+	log.Printf("[ServeMedia] Serving object: %s (Content-Type: %s)", objectName, contentType)
 
 	// Stream the file
 	return c.SendStream(obj)

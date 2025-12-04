@@ -18,6 +18,7 @@ type MediaStorage interface {
 	Upload(ctx context.Context, objectName string, reader io.Reader, size int64, contentType string) (string, error)
 	GetObject(ctx context.Context, objectName string) (io.Reader, error)
 	GetClient() interface{} // Returns the underlying client for direct access
+	GetObjectInfo(ctx context.Context, objectName string) (interface{}, error) // Returns object info if available, nil otherwise
 }
 
 type minioStorage struct {
@@ -114,7 +115,7 @@ func (s *minioStorage) GetClient() interface{} {
 }
 
 // GetObjectInfo gets object information from MinIO
-func (s *minioStorage) GetObjectInfo(ctx context.Context, objectName string) (*minio.ObjectInfo, error) {
+func (s *minioStorage) GetObjectInfo(ctx context.Context, objectName string) (interface{}, error) {
 	objInfo, err := s.client.StatObject(ctx, s.bucket, objectName, minio.StatObjectOptions{})
 	if err != nil {
 		return nil, err
