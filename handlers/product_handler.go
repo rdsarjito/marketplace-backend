@@ -206,16 +206,18 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 
 	log.Printf("[ServeMedia] Serving object: %s (Content-Type: %s, Size: %d)", objectName, contentType, contentLength)
 
-	// Get object from storage - must be done inside SetBodyStreamWriter to avoid closing too early
+	// Get context and object BEFORE SetBodyStreamWriter
+	// Context is not valid inside goroutine, so we must get it here
+	ctx := c.UserContext()
+	obj, err := h.storage.GetObject(ctx, objectName)
+	if err != nil {
+		log.Printf("[ServeMedia] Error getting object: %v (objectName: %s)", err, objectName)
+		return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse("Error retrieving file", nil))
+	}
+
 	// Use SetBodyStreamWriter for reliable streaming through Nginx proxy
 	// This ensures headers are sent before streaming starts
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
-		// Get object inside the stream writer to ensure it's not closed before streaming
-		obj, err := h.storage.GetObject(c.UserContext(), objectName)
-		if err != nil {
-			log.Printf("[ServeMedia] Error getting object in stream: %v (objectName: %s)", err, objectName)
-			return
-		}
 		defer func() {
 			if closer, ok := obj.(io.Closer); ok {
 				closer.Close()
