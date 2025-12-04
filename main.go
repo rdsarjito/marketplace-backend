@@ -42,6 +42,10 @@ func main() {
 	app.Use(cors.New())
 	app.Use(logger.New())
 
+	// IMPORTANT: Media route must be registered early, before handlers are initialized
+	// We'll register a placeholder first, then replace it later
+	fmt.Println("=== Setting up media route placeholder ===")
+
 	// API external for data province & city
 	provinceCityApiURL := os.Getenv("API_LOCATION")
 
@@ -83,19 +87,20 @@ func main() {
 
 	// Media serving route - handle all requests to /media
 	// This route serves product images from MinIO storage
-	// Use direct route with catch-all pattern - must be before API routes
-	// Try using explicit methods first
-	app.Get("/media/*", productHandler.ServeMedia)
-	app.Head("/media/*", productHandler.ServeMedia)
-	app.Options("/media/*", productHandler.ServeMedia)
-	log.Printf("=== Media route registered: /media/* (GET, HEAD, OPTIONS) ===")
-	
-	// Also try with middleware approach as backup
+	// IMPORTANT: Use middleware with path prefix BEFORE route registration
+	// This ensures all /media/* requests are caught
 	app.Use("/media", func(c *fiber.Ctx) error {
-		log.Printf("[MediaMiddleware] Request to /media: %s %s", c.Method(), c.Path())
+		log.Printf("[MediaMiddleware] Request intercepted: %s %s", c.Method(), c.OriginalURL())
 		return productHandler.ServeMedia(c)
 	})
-	log.Printf("=== Media middleware registered: /media ===")
+	fmt.Println("=== Media middleware registered: /media ===")
+	log.Println("=== Media middleware registered: /media ===")
+	
+	// Also register explicit routes as backup
+	app.Get("/media/*", productHandler.ServeMedia)
+	app.Head("/media/*", productHandler.ServeMedia)
+	fmt.Println("=== Media routes registered: /media/* (GET, HEAD) ===")
+	log.Println("=== Media routes registered: /media/* (GET, HEAD) ===")
 
 	// API routes
 	api := app.Group("/api/v1")
