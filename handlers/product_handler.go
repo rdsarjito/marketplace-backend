@@ -208,6 +208,7 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 
 	c.Set("Content-Type", contentType)
 	c.Set("Cache-Control", "public, max-age=31536000") // Cache for 1 year
+	c.Set("X-Accel-Buffering", "no") // Disable nginx buffering for streaming
 	
 	// Set Content-Length if available
 	if contentLength > 0 {
@@ -216,12 +217,31 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 
 	log.Printf("[ServeMedia] Serving object: %s (Content-Type: %s, Size: %d)", objectName, contentType, contentLength)
 
-	// Stream the file
-	// Use SendStream with proper error handling
-	if err := c.SendStream(obj); err != nil {
-		log.Printf("[ServeMedia] Error streaming object: %v (objectName: %s)", err, objectName)
-		return err
-	}
+	// Use SetBodyStreamWriter for reliable streaming through Nginx proxy
+	// This ensures headers are sent before streaming starts
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		defer func() {
+			if closer, ok := obj.(io.Closer); ok {
+				closer.Close()
+			}
+		}()
+		
+		// Copy data from MinIO object to response writer
+		written, err := io.Copy(w, obj)
+		if err != nil {
+			log.Printf("[ServeMedia] Error copying stream: %v (objectName: %s, written: %d)", err, objectName, written)
+			return
+		}
+		
+		// Flush any remaining data
+		if err := w.Flush(); err != nil {
+			log.Printf("[ServeMedia] Error flushing stream: %v (objectName: %s)", err, objectName)
+			return
+		}
+		
+		log.Printf("[ServeMedia] Successfully streamed object: %s (bytes: %d)", objectName, written)
+	})
+
 	return nil
 }
 
