@@ -50,6 +50,7 @@ func (s *userService) GetMyProfile(userID int) (*response.UserProfile, error) {
 		Email:         user.Email,
 		IDProvinsi:    user.IDProvinsi,
 		IDKota:        user.IDKota,
+		PhotoURL:      user.PhotoURL,
 		IsAdmin:       user.IsAdmin,
 	}
 
@@ -94,6 +95,7 @@ func (s *userService) UpdateProfile(userID int, req *request.UpdateProfileReques
 		Email:         user.Email,
 		IDProvinsi:    user.IDProvinsi,
 		IDKota:        user.IDKota,
+		PhotoURL:      user.PhotoURL,
 		IsAdmin:       user.IsAdmin,
 	}
 

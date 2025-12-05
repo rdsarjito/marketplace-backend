@@ -21,7 +21,7 @@ type AuthService interface {
 	LoginUser(req *request.LoginRequest) (*response.AuthResponse, error)
 	ForgotPassword(req *request.ForgotPasswordRequest) (*response.ForgotPasswordResponse, error)
 	ResetPassword(req *request.ResetPasswordRequest) (*response.ResetPasswordResponse, error)
-    LoginWithGoogle(email, name string) (*response.AuthResponse, error)
+    LoginWithGoogle(email, name, picture string) (*response.AuthResponse, error)
 }
 
 type authService struct {
@@ -113,6 +113,7 @@ func (s *authService) RegisterUser(req *request.RegisterRequest) (*response.Auth
 		Email:         user.Email,
 		IDProvinsi:    user.IDProvinsi,
 		IDKota:        user.IDKota,
+		PhotoURL:      user.PhotoURL,
 		IsAdmin:       user.IsAdmin,
 	}
 
@@ -152,6 +153,7 @@ func (s *authService) LoginUser(req *request.LoginRequest) (*response.AuthRespon
 		Email:         user.Email,
 		IDProvinsi:    user.IDProvinsi,
 		IDKota:        user.IDKota,
+		PhotoURL:      user.PhotoURL,
 		IsAdmin:       user.IsAdmin,
 	}
 
@@ -163,7 +165,7 @@ func (s *authService) LoginUser(req *request.LoginRequest) (*response.AuthRespon
 
 // LoginWithGoogle logs the user in using Google account email. If the user
 // does not exist, it creates a minimal user profile and a shop entry.
-func (s *authService) LoginWithGoogle(email, name string) (*response.AuthResponse, error) {
+func (s *authService) LoginWithGoogle(email, name, picture string) (*response.AuthResponse, error) {
     if email == "" {
         return nil, errors.New("Invalid Google account: email missing")
     }
@@ -177,6 +179,7 @@ func (s *authService) LoginWithGoogle(email, name string) (*response.AuthRespons
             Nama:         name,
             KataSandi:    "google-oauth", // not used for Google login
             NoTelp:       "google-" + email,
+            PhotoURL:     picture,
             TanggalLahir: now,
             JenisKelamin: "",
             Tentang:      "",
@@ -199,6 +202,12 @@ func (s *authService) LoginWithGoogle(email, name string) (*response.AuthRespons
             return nil, err
         }
         user = newUser
+    } else {
+        // Update photo if provided and not already set
+        if picture != "" && user.PhotoURL == "" {
+            user.PhotoURL = picture
+            _ = s.userRepo.Update(user)
+        }
     }
 
     // Generate token
@@ -218,6 +227,7 @@ func (s *authService) LoginWithGoogle(email, name string) (*response.AuthRespons
         Email:         user.Email,
         IDProvinsi:    user.IDProvinsi,
         IDKota:        user.IDKota,
+        PhotoURL:      user.PhotoURL,
         IsAdmin:       user.IsAdmin,
     }
 

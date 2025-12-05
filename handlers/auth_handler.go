@@ -178,7 +178,7 @@ func (h *AuthHandler) GoogleCallback(c *fiber.Ctx) error {
     }
 
     // Login or create user
-    authResp, err := h.authService.LoginWithGoogle(userinfo.Email, userinfo.Name)
+    authResp, err := h.authService.LoginWithGoogle(userinfo.Email, userinfo.Name, userinfo.Picture)
     if err != nil {
         return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse(err.Error(), nil))
     }

@@ -16,6 +16,7 @@ type UserProfile struct {
 	Email         string `json:"email"`
 	IDProvinsi    string `json:"id_provinsi"`
 	IDKota        string `json:"id_kota"`
+	PhotoURL      string `json:"photo_url,omitempty"`
 	IsAdmin       bool   `json:"is_admin"`
 }
 
