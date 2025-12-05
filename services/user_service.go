@@ -63,22 +63,38 @@ func (s *userService) UpdateProfile(userID int, req *request.UpdateProfileReques
 		return nil, errors.New(constants.ErrUserNotFound)
 	}
 
-	// Parse tanggal lahir
-	tanggalLahir, err := time.Parse("2006-01-02", req.TanggalLahir)
-	if err != nil {
-		return nil, errors.New("Invalid date format")
+	// Update only provided fields
+	if req.Nama != "" {
+		user.Nama = req.Nama
 	}
-
-	// Update user data
-	user.Nama = req.Nama
-	user.NoTelp = req.NoTelp
-	user.TanggalLahir = tanggalLahir
-	user.JenisKelamin = req.JenisKelamin
-	user.Tentang = req.Tentang
-	user.Pekerjaan = req.Pekerjaan
-	user.Email = req.Email
-	user.IDProvinsi = req.IDProvinsi
-	user.IDKota = req.IDKota
+	if req.NoTelp != "" {
+		user.NoTelp = req.NoTelp
+	}
+	if req.TanggalLahir != "" {
+		tanggalLahir, err := time.Parse("2006-01-02", req.TanggalLahir)
+		if err != nil {
+			return nil, errors.New("Invalid date format")
+		}
+		user.TanggalLahir = tanggalLahir
+	}
+	if req.JenisKelamin != "" {
+		user.JenisKelamin = req.JenisKelamin
+	}
+	if req.Tentang != "" {
+		user.Tentang = req.Tentang
+	}
+	if req.Pekerjaan != "" {
+		user.Pekerjaan = req.Pekerjaan
+	}
+	if req.Email != "" {
+		user.Email = req.Email
+	}
+	if req.IDProvinsi != "" {
+		user.IDProvinsi = req.IDProvinsi
+	}
+	if req.IDKota != "" {
+		user.IDKota = req.IDKota
+	}
 
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, err
