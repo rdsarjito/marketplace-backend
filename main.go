@@ -83,20 +83,7 @@ func main() {
 
 	// Media serving route - handle all requests to /media
 	// This route serves product images from MinIO storage
-	// IMPORTANT: Use middleware with path prefix BEFORE route registration
-	// This ensures all /media/* requests are caught
-	app.Use("/media", func(c *fiber.Ctx) error {
-		log.Printf("[MediaMiddleware] Request intercepted: %s %s", c.Method(), c.OriginalURL())
-		return productHandler.ServeMedia(c)
-	})
-	fmt.Println("=== Media middleware registered: /media ===")
-	log.Println("=== Media middleware registered: /media ===")
-
-	// Also register explicit routes as backup
-	app.Get("/media/*", productHandler.ServeMedia)
-	app.Head("/media/*", productHandler.ServeMedia)
-	fmt.Println("=== Media routes registered: /media/* (GET, HEAD) ===")
-	log.Println("=== Media routes registered: /media/* (GET, HEAD) ===")
+	app.Use("/media", productHandler.ServeMedia)
 
 	// API routes
 	api := app.Group("/api/v1")

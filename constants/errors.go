@@ -5,6 +5,8 @@ const (
 	ErrInvalidCredentials = "Invalid email or password"
 	ErrUserNotFound       = "User not found"
 	ErrUserAlreadyExists  = "User already exists"
+	ErrEmailAlreadyExists = "Email sudah terdaftar"
+	ErrPhoneAlreadyExists = "Nomor telepon sudah terdaftar"
 	ErrInvalidToken       = "Invalid or expired token"
 	ErrUnauthorized       = "Unauthorized access"
 	ErrForbidden          = "Forbidden access"

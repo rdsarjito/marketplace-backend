@@ -41,15 +41,16 @@ func NewAuthService(userRepo repositories.UserRepository, shopRepo repositories.
 }
 
 func (s *authService) RegisterUser(req *request.RegisterRequest) (*response.AuthResponse, error) {
-	// Check if user already exists
+	// Check if email already exists
 	existingUser, _ := s.userRepo.GetByEmail(req.Email)
 	if existingUser != nil {
-		return nil, errors.New(constants.ErrUserAlreadyExists)
+		return nil, errors.New(constants.ErrEmailAlreadyExists)
 	}
 
+	// Check if phone number already exists
 	existingUser, _ = s.userRepo.GetByPhone(req.NoTelp)
 	if existingUser != nil {
-		return nil, errors.New(constants.ErrUserAlreadyExists)
+		return nil, errors.New(constants.ErrPhoneAlreadyExists)
 	}
 
 	// Hash password

@@ -152,33 +152,18 @@ func (h *ProductHandler) UploadProductPhoto(c *fiber.Ctx) error {
 // ServeMedia serves media files from MinIO storage
 // This is a public endpoint to serve product images
 func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
-	log.Printf("[ServeMedia] Handler called - Method: %s, Path: %s, OriginalURL: %s", c.Method(), c.Path(), c.OriginalURL())
-
-	// Get object name from path
-	// When using middleware with path prefix /media, the full path is in c.Path()
-	// When using route with catch-all /*, the path after /media is in c.Params("*")
-	objectName := c.Params("*")
-	log.Printf("[ServeMedia] Params(*): '%s'", objectName)
+	// Get object name from path (middleware removes /media prefix)
+	path := c.Path()
+	objectName := strings.TrimPrefix(path, "/media")
+	objectName = strings.TrimPrefix(objectName, "/")
 
 	if objectName == "" {
-		// Fallback: try to get from path (for middleware approach)
-		path := c.Path()
-		// Remove /media prefix to get the object name
-		objectName = strings.TrimPrefix(path, "/media")
-		objectName = strings.TrimPrefix(objectName, "/")
-		log.Printf("[ServeMedia] Fallback from path: '%s' -> '%s'", path, objectName)
-		if objectName == "" {
-			log.Printf("[ServeMedia] ERROR: Object name is empty - Path: %s, OriginalURL: %s", c.Path(), c.OriginalURL())
-			return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Object name required", nil))
-		}
+		return c.Status(fiber.StatusBadRequest).JSON(response.ErrorResponse("Object name required", nil))
 	}
 
-	log.Printf("[ServeMedia] Requesting object: %s", objectName)
-
-	// Try to get object info first to check if file exists and get content type
+	// Get object info to check if file exists and get content type
 	objInfo, err := h.storage.GetObjectInfo(c.UserContext(), objectName)
 	if err != nil {
-		log.Printf("[ServeMedia] Object not found or error: %v (objectName: %s)", err, objectName)
 		return c.Status(fiber.StatusNotFound).JSON(response.ErrorResponse(
 			fmt.Sprintf("File not found: %s", objectName), nil))
 	}
@@ -204,19 +189,15 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 		c.Set("Content-Length", fmt.Sprintf("%d", contentLength))
 	}
 
-	log.Printf("[ServeMedia] Serving object: %s (Content-Type: %s, Size: %d)", objectName, contentType, contentLength)
-
-	// Get context and object BEFORE SetBodyStreamWriter
+	// Get context and object before SetBodyStreamWriter
 	// Context is not valid inside goroutine, so we must get it here
 	ctx := c.UserContext()
 	obj, err := h.storage.GetObject(ctx, objectName)
 	if err != nil {
-		log.Printf("[ServeMedia] Error getting object: %v (objectName: %s)", err, objectName)
 		return c.Status(fiber.StatusInternalServerError).JSON(response.ErrorResponse("Error retrieving file", nil))
 	}
 
 	// Use SetBodyStreamWriter for reliable streaming through Nginx proxy
-	// This ensures headers are sent before streaming starts
 	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer func() {
 			if closer, ok := obj.(io.Closer); ok {
@@ -225,19 +206,16 @@ func (h *ProductHandler) ServeMedia(c *fiber.Ctx) error {
 		}()
 
 		// Copy data from MinIO object to response writer
-		written, err := io.Copy(w, obj)
-		if err != nil {
-			log.Printf("[ServeMedia] Error copying stream: %v (objectName: %s, written: %d)", err, objectName, written)
+		if _, err := io.Copy(w, obj); err != nil {
+			log.Printf("[ServeMedia] Error streaming: %v (objectName: %s)", err, objectName)
 			return
 		}
 
 		// Flush any remaining data
 		if err := w.Flush(); err != nil {
-			log.Printf("[ServeMedia] Error flushing stream: %v (objectName: %s)", err, objectName)
+			log.Printf("[ServeMedia] Error flushing: %v (objectName: %s)", err, objectName)
 			return
 		}
-
-		log.Printf("[ServeMedia] Successfully streamed object: %s (bytes: %d)", objectName, written)
 	})
 
 	return nil
